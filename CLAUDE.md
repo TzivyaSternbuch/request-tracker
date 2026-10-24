@@ -235,6 +235,18 @@ src/app/
 - Integration tests: real API via `WebApplicationFactory` + real DB via Testcontainers.
 - Required minimum: valid query/update, invalid input, concurrency conflict, one integration test.
 
+## Branches & commits
+- **No direct commits of code to `main`.** Code reaches `main` only through a PR from a task branch.
+  Exception: documentation-only changes (`CLAUDE.md`, `docs/`, `README.md`) made by the coordinating session may be
+  committed directly to `main`.
+- One branch per task, created from the latest `main`, named `feature/<task-id>-<short-name>` using the task ID from
+  `docs/PLAN.md` (e.g. `feature/03-status-concurrency`). Work outside a planned task: `fix/<short-name>`.
+- Each task runs in its own worktree on its own branch; `main` stays checked out only in the main folder.
+- PR title starts with the task ID (e.g. `03: Status update with optimistic concurrency`). The description lists what
+  was done, deviations from defaults and why, and any shared files touched.
+- Convention changes committed to `main` reach a running task only when it syncs with `main` (merge step 1 below),
+  so sync before continuing after such a change.
+
 ## Working in parallel
 - Build the first vertical slice (`GET api/requests` end to end: entity → query → service → controller → Angular list)
   **before** splitting work, in a single sequential task. Once reviewed, register its files as reference implementations.
