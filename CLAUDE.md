@@ -1,4 +1,4 @@
-# Requests Management — Project Conventions
+# Request Tracker — Project Conventions
 
 Full-stack exam project: a system for managing requests from organizations (100k+ records, multiple concurrent users).
 Many tasks run in parallel sessions, so code must stay consistent across sessions. The goal is consistent, maintainable
@@ -46,9 +46,9 @@ them. Each row becomes a reference only after review (see "Registering" below). 
 
 | Layer | Reference file | Reviewed |
 |---|---|---|
-| Controller | `backend/src/RequestsManagement.Api/Controllers/RequestsController.cs` | pending |
-| Service | `backend/src/RequestsManagement.Core/Services/RequestService.cs` | pending |
-| Repository | `backend/src/RequestsManagement.Infrastructure/Repositories/RequestRepository.cs` | pending |
+| Controller | `backend/src/RequestTracker.Api/Controllers/RequestsController.cs` | pending |
+| Service | `backend/src/RequestTracker.Core/Services/RequestService.cs` | pending |
+| Repository | `backend/src/RequestTracker.Infrastructure/Repositories/RequestRepository.cs` | pending |
 | Angular API service | `frontend/src/app/core/api/requests-api.service.ts` | pending |
 | Angular store | `frontend/src/app/features/requests/requests.store.ts` | pending |
 | Angular component | `frontend/src/app/features/requests/requests-list/requests-list.component.ts` | pending |
@@ -84,14 +84,14 @@ Microsoft.AspNetCore.Mvc.Testing, Testcontainers (for the chosen DB), Angular Ma
 
 ```
 backend/
-  RequestsManagement.sln
+  RequestTracker.sln
   src/
-    RequestsManagement.Api/             controllers, middleware, Program.cs, DI composition
-    RequestsManagement.Core/            entities, enums, DTOs, service interfaces + services, validators, exceptions
-    RequestsManagement.Infrastructure/  DB context/config, repositories, data seeder
+    RequestTracker.Api/             controllers, middleware, Program.cs, DI composition
+    RequestTracker.Core/            entities, enums, DTOs, service interfaces + services, validators, exceptions
+    RequestTracker.Infrastructure/  DB context/config, repositories, data seeder
   tests/
-    RequestsManagement.UnitTests/
-    RequestsManagement.IntegrationTests/
+    RequestTracker.UnitTests/
+    RequestTracker.IntegrationTests/
 frontend/                               Angular app
 docs/
   code-patterns.md implementation notes for the reference code
@@ -196,7 +196,7 @@ meaningful body) and are added to this table.
 
 ### Seeding
 - `DataSeeder` in Infrastructure, deterministic (fixed random seed), idempotent: drops and recreates test data.
-- Run with `dotnet run --project backend/src/RequestsManagement.Api -- seed`. Inserts in batches, not row by row.
+- Run with `dotnet run --project backend/src/RequestTracker.Api -- seed`. Inserts in batches, not row by row.
 
 ## Database — TBD
 
