@@ -1,0 +1,41 @@
+name: Update submodules
+
+# Moves backend/ and frontend/ to the latest main of their repositories.
+# The submodule repositories trigger it on every push to their main; the schedule is a
+# fallback for a lost notification, and it can also be run by hand.
+on:
+  repository_dispatch:
+    types: [submodule-updated]
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# One run at a time, so two notifications can't push competing pointer commits.
+concurrency:
+  group: update-submodules
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+
+      - name: Move pointers to the latest main
+        run: git submodule update --remote
+
+      - name: Commit and push if a pointer changed
+        run: |
+          if git diff --quiet; then
+            echo "Submodules are already at the latest main."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Update submodule pointers"
+          git push
