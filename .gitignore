@@ -1,0 +1,22 @@
+# Claude Code (local only)
+.claude/settings.local.json
+.claude/worktrees/
+
+# .NET
+bin/
+obj/
+*.user
+.vs/
+TestResults/
+
+# Angular / Node
+node_modules/
+dist/
+.angular/
+
+# IDE / OS
+.idea/
+.vscode/*
+!.vscode/extensions.json
+Thumbs.db
+.DS_Store
