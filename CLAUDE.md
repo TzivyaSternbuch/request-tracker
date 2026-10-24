@@ -21,6 +21,9 @@ Grading reminders (they shape every decision):
 - If this file, a reference file and existing code disagree, do not silently treat any of them as correct. Flag the
   conflict and resolve it explicitly — fix the code or update this file, in a dedicated change.
 - Implementation notes that explain non-obvious choices in the reference code: @docs/code-patterns.md
+- **Tasks are referred to by number.** "Task 10", "do 10" or "10" means task 10 in `docs/PLAN.md`. Before starting,
+  read its task board row (dependencies, track), its task section and its user story's acceptance criteria; don't ask
+  for the requirements to be pasted. If its dependencies aren't merged yet, say so before starting.
 
 ## Mandatory constraints
 
@@ -35,7 +38,8 @@ Grading reminders (they shape every decision):
 6. **Audit**: every status change writes an audit row in the same transaction as the change.
 7. **Cache consistency**: any write that affects cached data invalidates that cache entry.
 8. **Error contract**: every error response is ProblemDetails with the status semantics in "Error responses" below.
-9. **Status transitions** are defined in exactly one place (`Core/Domain/StatusTransitions.cs`).
+9. **Status transitions** are defined in exactly one place (`Core/Domain/StatusTransitions.cs`), implementing the
+   matrix in `docs/PLAN.md` → Status transitions.
 10. **Dependencies**: only packages from the allow-list in "Stack". Adding one requires asking first.
 11. **Logging**: no sensitive data (request bodies, `changedBy` values, full DTOs) in logs.
 
@@ -77,14 +81,19 @@ flagged and resolved explicitly, never silently followed or silently ignored.
 - Tests: xUnit, `WebApplicationFactory` for integration tests.
 
 Allowed packages: FluentValidation, Microsoft.Extensions.Caching.Hybrid, Microsoft.EntityFrameworkCore.SqlServer,
-Microsoft.EntityFrameworkCore.Design (migrations), Microsoft.AspNetCore.Mvc.Testing, Testcontainers.MsSql, Angular Material.
+Microsoft.EntityFrameworkCore.Design (migrations), Microsoft.AspNetCore.OpenApi (OpenAPI document),
+Microsoft.AspNetCore.Mvc.Testing, Testcontainers.MsSql, Angular Material.
 `dotnet-ef` is a local tool (`.config/dotnet-tools.json`), not a package.
 **Not allowed:** AutoMapper, MediatR, FluentAssertions, NgRx, any repository/unit-of-work generic base classes.
 
 ## Repository layout
 
+Three repositories: this main repository includes `request-tracker-server` and `request-tracker-client` as submodules
+that track `main`. A workflow keeps both pointers at their latest `main` (see `docs/PLAN.md` → Repositories). Paths in
+this file are relative to the main repository.
+
 ```
-backend/
+backend/                            submodule → request-tracker-server
   RequestTracker.sln
   src/
     RequestTracker.Api/             controllers, middleware, Program.cs, DI composition
@@ -93,18 +102,20 @@ backend/
   tests/
     RequestTracker.UnitTests/
     RequestTracker.IntegrationTests/
-frontend/                               Angular app
+frontend/                           submodule → request-tracker-client: Angular app
 docs/
   code-patterns.md implementation notes for the reference code
   PLAN.md          work plan: features → tasks, dependencies, estimates (exam section 9)
+  board.html       task board that reads PLAN.md; serve it with `node docs/board-server.mjs`
   plan/            per-task implementation plans (e.g. from superpowers:writing-plans), <task-id>-<short-name>.md
   PERFORMANCE.md   query plans, indexes, bottlenecks (exam section 6)
   AI_USAGE.md      where AI was used and what was checked/changed manually (exam section 11)
 README.md          run instructions, decisions, alternatives, limitations (exam section 11)
 ```
 
-Implementation plans for a task (including `superpowers:writing-plans` output) are saved to `docs/plan/`, named after
-the task (`docs/plan/03-status-concurrency.md`), not to the skill's default `docs/superpowers/plans/`.
+When a task needs an implementation plan (`docs/PLAN.md` says which ones do), it is saved to `docs/plan/` — including
+`superpowers:writing-plans` output — named after the task (`docs/plan/03-status-concurrency.md`), not to the skill's
+default `docs/superpowers/plans/`. Smaller tasks are described in their PR.
 
 ## Backend conventions
 
@@ -177,8 +188,8 @@ repository write outcomes — are return values, not exceptions; don't use excep
 | `GET api/requests` — query: `page` (1-based, default 1), `pageSize` (default 20, max 100), `status`, `priority`, `organizationName`, `assignedTo`, `createdFrom`, `createdTo`, `search` (Title + OrganizationName), `sortBy` (`createdAt`, `updatedAt`, `priority`, `title`), `sortDirection` (`asc`/`desc`, default `desc`) | 200 `PagedResult<RequestDto>` = `{ items, page, pageSize, totalCount }` |
 | `GET api/requests/{id}` | 200 `RequestDto` |
 | `PATCH api/requests/{id}/status` — body `{ status, version, changedBy }` | 200 updated `RequestDto` (the client needs the new `version`) |
-| `PATCH api/requests/status` — bulk, body `{ items: [{ id, version }], status, changedBy }`, max 100 items | 200 with per-item results (see Concurrency); an invalid request as a whole (e.g. >100 items) is 400 |
-| `GET api/requests/{id}/history` | 200 list, newest first; 404 if the request doesn't exist |
+| `PATCH api/requests/status` — bulk, body `{ items: [{ id, version }], status, changedBy }`, 1–100 items, distinct ids, every item with a valid `id` and `version` | 200 with per-item results (see Concurrency); an invalid request as a whole (e.g. >100 items, a missing `version`) is 400 |
+| `GET api/requests/{id}/history` — query: `page`, `pageSize` (same rules as the list) | 200 `PagedResult<StatusHistoryDto>`, newest first; 404 if the request doesn't exist |
 | `GET api/requests/stats` | 200 `RequestStatsDto` (cached) |
 
 New endpoints choose status codes by HTTP semantics (e.g. 201 + `Location` for creation, 204 when there is no
@@ -187,7 +198,8 @@ meaningful body) and are added to this table.
 ### Concurrency & audit
 - The conditional update affects zero rows → 409, or 404 if the row doesn't exist.
 - Audit row fields: `RequestId, PreviousStatus, NewStatus, ChangedAt, ChangedBy`.
-- Bulk update: **Partial Success**. Each item is processed independently; the response lists
+- Bulk update: **Partial Success**. Each item is processed independently, with its own `version` check and
+  transaction; the response lists
   `{ succeeded: [ids], failed: [{ id, reason: "NotFound" | "Conflict" | "InvalidTransition" }] }`.
   (A change to this decision is made here first.)
 
@@ -278,8 +290,9 @@ src/app/
 - Signal APIs: `input()`, `output()`, `computed()`. No `any`. Strict TypeScript.
 - Components don't inject `HttpClient`. API services return `Observable`s and hold no state.
 - Feature state lives in a store service using signals, provided at the feature route/component level.
-- Search (spec requirement: debounce and cancel stale requests). Default pipeline: query signal → `toObservable` →
-  `debounceTime(300)` → `distinctUntilChanged` → `switchMap(api call)` → state signals.
+- Search (spec requirement: debounce and cancel stale requests). Debounce only the free-text search (300 ms); filter,
+  sort and page changes request immediately. Default pipeline: debounced search text combined with the other query
+  values → `distinctUntilChanged` → `switchMap(api call)` → state signals, so a newer query cancels the pending one.
 - Every data view handles loading, empty and error states (spec requirement). Default model: one
   `status: 'idle' | 'loading' | 'success' | 'error'` signal.
 - 409 on status update: tell the user the request was modified by someone else and reload it.
@@ -292,30 +305,46 @@ src/app/
 - Required minimum: valid query/update, invalid input, concurrency conflict, one integration test.
 
 ## Branches & commits
-- **No direct commits of code to `main`.** Code reaches `main` only through a PR from a task branch.
-  Exception: documentation-only changes (`CLAUDE.md`, `docs/`, `README.md`) made by the coordinating session may be
-  committed directly to `main`.
+- **No direct commits of code to `main`**, in any repository. Code reaches `main` only through a PR from a task branch.
+  Exceptions, in the main repository only: documentation-only changes (`CLAUDE.md`, `docs/`, `README.md`) made by the
+  coordinating session, and submodule pointer updates, which only the update workflow makes. Task PRs never change a
+  submodule pointer.
+- Branch in the repository the task changes (`docs/PLAN.md` → task board, Repo column). Sessions work in a checkout of
+  the main repository: run `git submodule update --init`, then, inside the submodule, create the task branch from its
+  latest `main` (`git fetch origin`, `git switch -c <branch> origin/main`) before changing anything. Never commit on
+  the submodule's detached `HEAD`. Push the branch and open the PR in that repository. A task that changes two
+  repositories uses the same branch name in both and links the PRs.
 - One branch per task, created from the latest `main`, named `feature/<task-id>-<short-name>` using the task ID from
-  `docs/PLAN.md` (e.g. `feature/03-status-concurrency`). Work outside a planned task: `fix/<short-name>`.
+  `docs/PLAN.md` (e.g. `feature/03-status-concurrency`). Small, closely related tasks may share one branch and PR when
+  together they form one coherent, reviewable change; the branch is named after the first task. Work outside a planned
+  task: `fix/<short-name>`.
 - Each task runs in its own worktree on its own branch; `main` stays checked out only in the main folder.
-- PR title starts with the task ID (e.g. `03: Status update with optimistic concurrency`). The description lists what
+- PR title starts with the task ID or IDs (e.g. `03: Status update with optimistic concurrency`). The description lists what
   was done, deviations from defaults and why, and any shared files touched.
 - Convention changes committed to `main` reach a running task only when it syncs with `main` (merge step 1 below),
   so sync before continuing after such a change.
 
 ## Working in parallel
 - Build the first vertical slice (`GET api/requests` end to end: entity → query → service → controller → Angular list)
-  **before** splitting work, in a single sequential task. Once reviewed, register its files as reference implementations.
+  **before** splitting work, as one user story whose tasks run sequentially (API, then UI). Once reviewed, register its
+  files as reference implementations. Foundation tasks that share no files with other running tasks and set no code
+  patterns (e.g. the Angular scaffold) may run in parallel before the slice.
 - Each parallel task touches only its own feature files. Shared files (`Program.cs`, DB context, DI extensions,
   `CLAUDE.md`, shared models) are changed in a separate, sequential task — or the change is listed in the task's
   summary so the merge is deliberate.
+- After the slice, work runs in tracks that own their files and merge in a fixed order — see `docs/PLAN.md` →
+  Coordinating parallel work.
 - A new library, project or top-level folder needs approval first. A default that doesn't fit the use case can be
   adapted inside the task, with the reason in the PR description.
 - **Before merging a branch into `main`**:
-  1. Bring the branch up to date with the latest `main` (in a Claude desktop worktree session use the
-     sync-with-base-branch tool; otherwise `git merge main`). Resolve conflicts.
+  1. Bring the branch up to date with the latest `main` of its repository. Inside a submodule: `git fetch origin` and
+     `git merge origin/main`. In the main repository, in a Claude desktop worktree session, use the
+     sync-with-base-branch tool; otherwise `git merge main`. Resolve conflicts.
   2. Compare new code with the reference implementations and with existing code in `main` that does similar things.
   3. Align with the established conventions. Deliberate deviations are explained in the PR description. If `main` or a
      reference itself looks wrong or conflicts with this file, flag it and resolve it explicitly in a separate change.
   4. Build, run all tests, and run `/code-review`. Only then merge.
+  5. After the merge, wait for the update workflow to move the submodule pointer. Then, on the main repository's
+     `main`, pull with submodules, build and run all tests (plus a UI smoke run after a frontend or API-contract change)
+     before the next branch merges. A failure is fixed first, in a `fix/` branch.
 - After finishing a task, append a short entry to `docs/AI_USAGE.md`: what AI generated, what was verified or changed manually.

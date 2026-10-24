@@ -32,5 +32,7 @@ only when it explains something the code and CLAUDE.md don't.
 - Query params drop `null`/empty values before sending, so they don't arrive as the string `"null"`.
 
 ## Tests
-- The concurrency test must hit the real database (integration test): send two updates with the same `version` and
-  assert exactly one 200 and one 409. A fake repository can't prove the database enforces it.
+- The concurrency tests must hit the real database (integration tests); a fake repository can't prove the database
+  enforces it. Two tests cover different failures: a stale version (update, then update again with the old `version`
+  → 409) and overlapping updates (two requests with the same `version` sent together → exactly one 200, one 409 and
+  one audit row). The overlapping test asserts outcomes, not timing, so it is deterministic whichever request wins.
