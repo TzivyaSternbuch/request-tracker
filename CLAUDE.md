@@ -97,10 +97,14 @@ frontend/                               Angular app
 docs/
   code-patterns.md implementation notes for the reference code
   PLAN.md          work plan: features → tasks, dependencies, estimates (exam section 9)
+  plan/            per-task implementation plans (e.g. from superpowers:writing-plans), <task-id>-<short-name>.md
   PERFORMANCE.md   query plans, indexes, bottlenecks (exam section 6)
   AI_USAGE.md      where AI was used and what was checked/changed manually (exam section 11)
 README.md          run instructions, decisions, alternatives, limitations (exam section 11)
 ```
+
+Implementation plans for a task (including `superpowers:writing-plans` output) are saved to `docs/plan/`, named after
+the task (`docs/plan/03-status-concurrency.md`), not to the skill's default `docs/superpowers/plans/`.
 
 ## Backend conventions
 
