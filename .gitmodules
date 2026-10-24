@@ -1,0 +1,8 @@
+[submodule "backend"]
+	path = backend
+	url = https://github.com/TzivyaSternbuch/request-tracker-server.git
+	branch = main
+[submodule "frontend"]
+	path = frontend
+	url = https://github.com/TzivyaSternbuch/request-tracker-client.git
+	branch = main
