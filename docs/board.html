@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Request Tracker Board</title>
+<!--
+  Task board for docs/PLAN.md. PLAN.md stays the single source of tasks, dependencies and estimates: this page loads
+  PLAN.md from its own folder and only stores local status changes in the browser. "Copy task board" produces the
+  updated table to paste back into PLAN.md.
+  Start it with `node docs/board-server.mjs` and open http://localhost:4300/. Browsers don't let a page opened from disk
+  read files next to it, so from disk it falls back to the "Open PLAN.md" button.
+-->
+<style>
+  :root {
+    --bg: #f5f6f8; --surface: #ffffff; --surface-2: #eceef2; --text: #1c2230; --muted: #5d6678; --border: #d8dce3;
+    --accent: #2f5bd3; --ok: #1d8348; --crit: #c0392b; --focus: #2f5bd3;
+    --t-planning: #7d8597; --t-foundation: #b7791f; --t-slice: #7b4fc9; --t-backend: #2f6fd6;
+    --t-frontend: #2b9a5c; --t-performance: #d0612b; --t-delivery: #1e8e98;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151b; --surface: #1b1f27; --surface-2: #252a34; --text: #e6e9ef; --muted: #9aa3b5; --border: #313744;
+      --accent: #7ea2ff; --ok: #4cc283; --crit: #ff7a6b; --focus: #7ea2ff;
+      --t-planning: #9aa1b0; --t-foundation: #e0a64a; --t-slice: #a888ef; --t-backend: #6f9dff;
+      --t-frontend: #5cc98b; --t-performance: #f08a55; --t-delivery: #4cc0c9;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; padding: 16px; border-bottom: 1px solid var(--border); background: var(--surface); }
+  h1 { font-size: 18px; margin: 0; }
+  h2 { font-size: 15px; margin: 0 0 8px; }
+  .muted { color: var(--muted); }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  button, select, input { font: inherit; color: inherit; }
+  button { background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  main { padding: 16px; display: grid; gap: 20px; }
+  section { min-width: 0; }
+  .badge { display: inline-block; padding: 0 6px; border-radius: 10px; font-size: 12px; background: var(--surface-2); border: 1px solid var(--border); white-space: nowrap; }
+  .badge.crit { color: var(--crit); border-color: var(--crit); }
+  .badge.ok { color: var(--ok); border-color: var(--ok); }
+  .next { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+  .board { display: grid; gap: 12px; grid-template-columns: repeat(5, minmax(190px, 1fr)); overflow-x: auto; }
+  @media (max-width: 900px) { .board { grid-template-columns: 1fr; } }
+  .col { background: var(--surface-2); border-radius: 8px; padding: 8px; min-height: 80px; }
+  .col h2 { display: flex; justify-content: space-between; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .card { display: block; width: 100%; text-align: left; background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--track); border-radius: 6px; padding: 8px; margin-bottom: 8px; }
+  .card .top { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .card .id { font-weight: 700; }
+  .card .title { margin: 4px 0; }
+  .card .meta { font-size: 12px; color: var(--muted); }
+  .timeline { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px; overflow-x: auto; }
+  .tl-row { display: grid; grid-template-columns: minmax(120px, 240px) 1fr; align-items: center; gap: 8px; min-height: 24px; }
+  .tl-label { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tl-track { position: relative; height: 18px; min-width: 360px; }
+  .tl-bar { position: absolute; top: 2px; height: 14px; border-radius: 3px; background: var(--track); opacity: .85; font-size: 10px; color: #fff; padding: 0 4px; overflow: hidden; white-space: nowrap; }
+  .tl-bar.crit { outline: 2px solid var(--crit); outline-offset: 1px; }
+  .tl-axis { position: relative; height: 16px; font-size: 11px; color: var(--muted); min-width: 360px; }
+  .tl-axis span { position: absolute; transform: translateX(-50%); }
+  aside#drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(560px, 100%); background: var(--surface); border-left: 1px solid var(--border); padding: 16px; overflow-y: auto; transform: translateX(100%); transition: transform .15s; box-shadow: -8px 0 24px rgba(0,0,0,.15); }
+  aside#drawer.open { transform: none; }
+  .drawer-head { display: flex; justify-content: space-between; gap: 8px; align-items: start; }
+  .field { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; }
+  .field label { min-width: 90px; color: var(--muted); }
+  .md { border-top: 1px solid var(--border); margin-top: 12px; padding-top: 4px; }
+  .md ul { padding-left: 20px; margin: 6px 0; }
+  .md p { margin: 8px 0; }
+  code { background: var(--surface-2); padding: 0 4px; border-radius: 4px; font-size: 12.5px; }
+  .empty { padding: 32px; text-align: center; border: 2px dashed var(--border); border-radius: 8px; }
+  dialog { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 8px; width: min(720px, 92vw); }
+  dialog textarea { width: 100%; height: 300px; font: 12px ui-monospace, monospace; background: var(--bg); color: var(--text); }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Request Tracker board</h1>
+    <div id="source" class="muted">No plan loaded</div>
+  </div>
+  <div class="actions">
+    <button id="reload" type="button">Reload PLAN.md</button>
+    <button id="open" type="button">Open PLAN.md…</button>
+    <button id="copy-board" type="button" class="primary">Copy task board</button>
+    <button id="reset" type="button">Reset local changes</button>
+    <input id="file" type="file" accept=".md,text/markdown,text/plain" hidden>
+  </div>
+</header>
+
+<main id="app">
+  <div class="empty">
+    <p><strong>PLAN.md couldn't be loaded from this page's folder.</strong></p>
+    <p>To load it automatically, run <code>node docs/board-server.mjs</code> from the repository root and open
+      <code>http://localhost:4300/</code>.</p>
+    <p class="muted">Browsers don't let a page opened from disk read the files next to it. Here, use
+      <em>Open PLAN.md…</em> or drop the file on this page.</p>
+  </div>
+</main>
+
+<aside id="drawer" aria-label="Task details" aria-hidden="true"></aside>
+
+<dialog id="copy-dialog">
+  <p>Copy this text (it is selected):</p>
+  <textarea id="copy-text" readonly></textarea>
+  <form method="dialog"><button>Close</button></form>
+</dialog>
+
+<script>
+// Milestones are gates made of tasks (PLAN.md → Milestones). M1 = the first vertical slice is merged and reviewed.
+const MILESTONES = { M1: ['08', '09'] };
+const STATUSES = ['todo', 'in progress', 'in review', 'done'];
+const COLUMNS = [
+  ['blocked', 'Blocked'], ['ready', 'Ready'], ['in progress', 'In progress'], ['in review', 'In review'], ['done', 'Done'],
+];
+const STORE_KEY = 'request-tracker-board';
+
+let plan = null;
+let byId = {};
+let sched = null;
+let state = loadState();
+
+function loadState() {
+  try { return JSON.parse(localStorage.getItem(STORE_KEY)) || { overrides: {} }; }
+  catch { return { overrides: {} }; }
+}
+function saveState() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch { /* storage unavailable: changes live until reload */ }
+}
+
+// ---------- Parsing PLAN.md ----------
+
+const splitRow = line => line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(c => c.trim());
+
+function tableAt(lines, headerPattern) {
+  const start = lines.findIndex(l => headerPattern.test(l));
+  if (start < 0) return null;
+  const rows = [];
+  for (let i = start + 2; i < lines.length && lines[i].trim().startsWith('|'); i++) rows.push(splitRow(lines[i]));
+  return { header: splitRow(lines[start]), separator: lines[start + 1], rows };
+}
+
+function parsePlan(text) {
+  const lines = text.replace(/\r/g, '').split('\n');
+
+  const board = tableAt(lines, /^\|\s*ID\s*\|\s*Task\s*\|/);
+  if (!board) throw new Error('No task board table ("| ID | Task | …") found in this file.');
+  const col = name => board.header.findIndex(h => h.toLowerCase().startsWith(name));
+  const cols = { id: col('id'), task: col('task'), us: col('us'), track: col('track'), repo: col('repo'),
+    deps: col('depends'), est: col('est'), status: col('status'), actual: col('actual') };
+
+  const trackOrders = {};
+  const ownership = tableAt(lines, /^\|\s*Track\s*\|\s*Tasks, in merge order/);
+  for (const row of ownership?.rows ?? []) {
+    const ids = row[1].match(/\b\d{2}\b/g);
+    if (ids) trackOrders[row[0]] = ids;
+  }
+
+  const sections = {};
+  const stories = {};
+  for (let i = 0; i < lines.length; i++) {
+    const task = lines[i].match(/^#### (\d{2}) (.+)$/);
+    const story = lines[i].match(/^\*\*US-(\d+\.\d+) /);
+    if (!task && !story) continue;
+    const end = /^#{2,4} /;
+    let j = i + 1;
+    while (j < lines.length && !end.test(lines[j]) && !(story && /^\*\*US-/.test(lines[j]))) j++;
+    if (task) {
+      const body = lines.slice(i + 1, j);
+      const metaIdx = body.findIndex(l => l.trim());
+      const meta = metaIdx >= 0 ? body[metaIdx] : '';
+      sections[task[1]] = {
+        meta,
+        body: body.slice(metaIdx + 1).join('\n'),
+        branch: (meta.match(/Branch: `([^`]+)`/) || [])[1] || null,
+        planFile: /Plan file: yes/.test(meta),
+      };
+    } else {
+      stories[story[1]] = lines.slice(i, j).join('\n');
+    }
+  }
+
+  const rows = board.rows.map(cells => {
+    const status = cells[cols.status].toLowerCase();
+    return {
+      cells,
+      id: cells[cols.id],
+      title: cells[cols.task],
+      us: cells[cols.us],
+      track: cells[cols.track],
+      repo: cols.repo >= 0 ? cells[cols.repo] : '',
+      deps: cells[cols.deps].match(/\b(?:\d{2}|M\d+)\b/g) || [],
+      est: parseFloat(cells[cols.est]) || 0,
+      status: STATUSES.includes(status) ? status : 'todo',
+      actual: cells[cols.actual],
+    };
+  });
+  return { board, cols, rows, trackOrders, sections, stories };
+}
+
+// ---------- Model ----------
+
+const statusOf = id => state.overrides[id]?.status ?? byId[id]?.status ?? 'todo';
+const actualOf = id => state.overrides[id]?.actual ?? byId[id]?.actual ?? '';
+const isDone = id => statusOf(id) === 'done';
+const tokenDone = token => (MILESTONES[token] || [token]).every(isDone);
+
+function trackPred(t) {
+  const order = plan.trackOrders[t.track];
+  const i = order ? order.indexOf(t.id) : -1;
+  return i > 0 ? order[i - 1] : null;
+}
+
+// Real dependencies plus track order: both have to be merged before a task can start.
+function predIds(t) {
+  const ids = t.deps.flatMap(d => MILESTONES[d] || [d]);
+  const tp = trackPred(t);
+  if (tp) ids.push(tp);
+  return [...new Set(ids)].filter(id => byId[id]);
+}
+
+function blockers(t) {
+  const list = t.deps.filter(d => !tokenDone(d)).map(d => ({ id: d, kind: 'dependency' }));
+  const tp = trackPred(t);
+  if (tp && !isDone(tp) && !t.deps.includes(tp)) list.push({ id: tp, kind: 'track order' });
+  return list;
+}
+
+function columnOf(t) {
+  const s = statusOf(t.id);
+  if (s !== 'todo') return s;
+  return blockers(t).length ? 'blocked' : 'ready';
+}
+
+// Earliest start/finish from now (done tasks take 0 h, others their full estimate) and slack to the project end.
+function schedule() {
+  const es = {}, ef = {}, ls = {};
+  const dur = t => (isDone(t.id) ? 0 : t.est);
+  const forward = (id, seen = new Set()) => {
+    if (id in ef) return ef[id];
+    if (seen.has(id)) return 0;
+    seen.add(id);
+    const t = byId[id];
+    es[id] = Math.max(0, ...predIds(t).map(p => forward(p, seen)));
+    ef[id] = es[id] + dur(t);
+    return ef[id];
+  };
+  plan.rows.forEach(t => forward(t.id));
+  const end = Math.max(0, ...Object.values(ef));
+  const succ = {};
+  plan.rows.forEach(t => predIds(t).forEach(p => (succ[p] ||= []).push(t.id)));
+  const backward = id => {
+    if (id in ls) return ls[id];
+    const finish = Math.min(end, ...(succ[id] || []).map(backward));
+    ls[id] = finish - dur(byId[id]);
+    return ls[id];
+  };
+  plan.rows.forEach(t => backward(t.id));
+  return { es, ef, end, slack: id => ls[id] - es[id] };
+}
+
+const isCritical = id => !isDone(id) && sched.slack(id) < 0.01;
+
+// ---------- Rendering ----------
+
+const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const trackVar = track => `var(--t-${track.toLowerCase().split(' ')[0]}, var(--muted))`;
+
+function inline(s) {
+  return esc(s)
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+}
+
+// Just enough Markdown for PLAN.md task sections: paragraphs, nested bullets, quotes, inline code and bold.
+function renderMd(md) {
+  let html = '';
+  let depth = 0;
+  let para = [];
+  let afterBlank = false;
+  const flush = () => { if (para.length) { html += `<p>${inline(para.join(' '))}</p>`; para = []; } };
+  const closeTo = d => { while (depth > d) { html += '</li></ul>'; depth--; } };
+  for (const line of md.split('\n')) {
+    const bullet = line.match(/^(\s*)- (.*)$/);
+    const indent = line.match(/^\s*/)[0].length;
+    if (bullet) {
+      flush();
+      const d = Math.floor(indent / 2) + 1;
+      if (d > depth) { while (depth < d) { html += '<ul><li>'; depth++; } }
+      else { closeTo(d); html += '</li><li>'; }
+      html += inline(bullet[2]);
+    } else if (!line.trim()) {
+      flush();
+      afterBlank = true;
+      continue;
+    } else if (depth && indent) {
+      // An indented line continues the current item; after a blank line it is a new paragraph inside the parent item.
+      if (afterBlank) { closeTo(Math.max(1, Math.floor(indent / 2))); html += `<p>${inline(line.trim())}</p>`; }
+      else html += ' ' + inline(line.trim());
+    } else {
+      closeTo(0);
+      para.push(line.replace(/^>\s?/, '').trim());
+    }
+    afterBlank = false;
+  }
+  flush();
+  closeTo(0);
+  return html;
+}
+
+function badges(t) {
+  const b = [`<span class="badge">${t.est} h</span>`];
+  if (isCritical(t.id)) b.push('<span class="badge crit">critical</span>');
+  else if (!isDone(t.id)) b.push(`<span class="badge">slack ${sched.slack(t.id)} h</span>`);
+  return b.join(' ');
+}
+
+function card(t) {
+  const col = columnOf(t);
+  const waits = col === 'blocked'
+    ? `<div class="meta">Waiting for ${blockers(t).map(b => esc(b.id) + (b.kind === 'track order' ? ' (track order)' : '')).join(', ')}</div>`
+    : '';
+  return `<button class="card" type="button" data-id="${esc(t.id)}" style="--track:${trackVar(t.track)}">
+    <div class="top"><span class="id">${esc(t.id)}</span>${badges(t)}</div>
+    <div class="title">${esc(t.title)}</div>
+    <div class="meta">${esc(t.us)} · ${esc(t.track)}${t.repo ? ' · ' + esc(t.repo) : ''}</div>${waits}</button>`;
+}
+
+function render() {
+  sched = schedule();
+  const app = document.getElementById('app');
+  const ready = plan.rows.filter(t => columnOf(t) === 'ready')
+    .sort((a, b) => sched.slack(a.id) - sched.slack(b.id) || sched.es[a.id] - sched.es[b.id]);
+  const remaining = plan.rows.filter(t => !isDone(t.id)).reduce((sum, t) => sum + t.est, 0);
+
+  const boardHtml = COLUMNS.map(([key, label]) => {
+    const cards = plan.rows.filter(t => columnOf(t) === key)
+      .sort((a, b) => sched.es[a.id] - sched.es[b.id] || a.id.localeCompare(b.id));
+    return `<div class="col"><h2><span>${label}</span><span>${cards.length}</span></h2>${cards.map(card).join('')}</div>`;
+  }).join('');
+
+  const scale = Math.max(sched.end, 1);
+  const open = plan.rows.filter(t => !isDone(t.id)).sort((a, b) => sched.es[a.id] - sched.es[b.id] || a.id.localeCompare(b.id));
+  const ticks = [];
+  for (let h = 0; h <= scale; h += 8) ticks.push(`<span style="left:${(h / scale) * 100}%">${h} h</span>`);
+  const rowsHtml = open.map(t => `<div class="tl-row">
+      <div class="tl-label" title="${esc(t.title)}">${esc(t.id)} ${esc(t.title)}</div>
+      <div class="tl-track"><div class="tl-bar${isCritical(t.id) ? ' crit' : ''}" style="--track:${trackVar(t.track)};left:${(sched.es[t.id] / scale) * 100}%;width:${(t.est / scale) * 100}%"
+        title="${esc(t.id)}: hour ${sched.es[t.id]}–${sched.ef[t.id]}">${esc(t.id)}</div></div></div>`).join('');
+
+  app.innerHTML = `
+    <section>
+      <h2>Ready to start</h2>
+      <p class="muted">Dependencies and track predecessors are merged. Most urgent first: critical tasks delay the end date.
+        ${remaining} h of estimated work left; about ${sched.end} h to finish with parallel tracks.</p>
+      <div class="next">${ready.length ? ready.map(card).join('') : '<p class="muted">Nothing is ready: finish the tasks in progress or in review.</p>'}</div>
+    </section>
+    <section><h2>Board</h2><div class="board">${boardHtml}</div></section>
+    <section>
+      <h2>Timeline from now</h2>
+      <p class="muted">Earliest start for each open task, in focused hours, with one session per track. Tasks in progress
+        count their full estimate. Outlined bars are on the critical path.</p>
+      <div class="timeline"><div class="tl-row"><div></div><div class="tl-axis">${ticks.join('')}</div></div>${rowsHtml}</div>
+    </section>`;
+
+  const changes = plan.rows.filter(t => statusOf(t.id) !== t.status || actualOf(t.id) !== t.actual).length;
+  document.getElementById('source').textContent =
+    `${state.source} · loaded ${new Date(state.loadedAt).toLocaleString()}` +
+    (changes ? ` · ${changes} local change${changes > 1 ? 's' : ''} not in PLAN.md yet` : '');
+  if (openId) showDrawer(openId);
+}
+
+let openId = null;
+
+function showDrawer(id) {
+  const t = byId[id];
+  const sec = plan.sections[id] || { meta: '', body: '', branch: null, planFile: false };
+  const story = plan.stories[t.us.replace('US-', '')];
+  const deps = t.deps.map(d => {
+    const done = tokenDone(d);
+    return `<span class="badge ${done ? 'ok' : ''}">${esc(d)} ${done ? '✓ merged' : '· ' + esc(MILESTONES[d] ? 'open' : statusOf(d))}</span>`;
+  });
+  const tp = trackPred(t);
+  if (tp) deps.push(`<span class="badge ${isDone(tp) ? 'ok' : ''}">after ${esc(tp)} (track order)</span>`);
+  const when = isDone(id) ? 'Done' : `Earliest start: hour ${sched.es[id]} · finish: hour ${sched.ef[id]} · slack ${sched.slack(id)} h`;
+
+  const drawer = document.getElementById('drawer');
+  drawer.innerHTML = `
+    <div class="drawer-head">
+      <h2>${esc(t.id)} ${esc(t.title)}</h2>
+      <button type="button" id="close-drawer" aria-label="Close details">✕</button>
+    </div>
+    <div class="muted">${esc(t.us)} · ${esc(t.track)}${t.repo ? ' · repo: ' + esc(t.repo) : ''} · ${t.est} h estimated · ${esc(when)}</div>
+    <div class="field">
+      <label for="status">Status</label>
+      <select id="status">${STATUSES.map(s => `<option ${s === statusOf(id) ? 'selected' : ''}>${s}</option>`).join('')}</select>
+      <label for="actual">Actual (h)</label>
+      <input id="actual" type="number" min="0" step="0.5" style="width:80px" value="${esc(actualOf(id))}">
+    </div>
+    <div class="field"><label>Depends on</label>${deps.length ? deps.join(' ') : '<span class="muted">nothing</span>'}</div>
+    <div class="field"><label>Branch</label>${sec.branch ? `<code>${esc(sec.branch)}</code> <button type="button" id="copy-branch">Copy</button>` : '<span class="muted">none</span>'}</div>
+    <div class="field"><label>Plan file</label>${sec.planFile && sec.branch ? `<code>docs/plan/${esc(sec.branch.replace(/^feature\//, ''))}.md</code>` : '<span class="muted">not needed: describe the work in the PR</span>'}</div>
+    <div class="field"><button type="button" id="copy-prompt" class="primary">Copy session prompt</button></div>
+    <div class="md">${inline(sec.meta)}${renderMd(sec.body)}</div>
+    ${story ? `<div class="md"><h2>User story</h2>${renderMd(story)}</div>` : ''}`;
+  drawer.classList.add('open');
+  drawer.setAttribute('aria-hidden', 'false');
+  openId = id;
+
+  drawer.querySelector('#close-drawer').onclick = closeDrawer;
+  drawer.querySelector('#status').onchange = e => setOverride(id, { status: e.target.value });
+  drawer.querySelector('#actual').onchange = e => setOverride(id, { actual: e.target.value });
+  drawer.querySelector('#copy-branch')?.addEventListener('click', () => copy(sec.branch));
+  drawer.querySelector('#copy-prompt').onclick = () => copy(sessionPrompt(t));
+}
+
+function closeDrawer() {
+  const drawer = document.getElementById('drawer');
+  drawer.classList.remove('open');
+  drawer.setAttribute('aria-hidden', 'true');
+  openId = null;
+}
+
+// CLAUDE.md tells sessions to read a task's requirements from PLAN.md, so the number is all a session needs.
+const sessionPrompt = t => `Implement task ${t.id}.`;
+
+function setOverride(id, change) {
+  const next = { status: statusOf(id), actual: actualOf(id), ...change };
+  const t = byId[id];
+  if (next.status === t.status && next.actual === t.actual) delete state.overrides[id];
+  else state.overrides[id] = next;
+  saveState();
+  render();
+}
+
+// ---------- Export ----------
+
+function boardMarkdown() {
+  const { board, cols } = plan;
+  const row = cells => '|' + cells.map(c => (c ? ` ${c} ` : ' ')).join('|') + '|';
+  return [row(board.header), board.separator, ...plan.rows.map(t => {
+    const cells = [...t.cells];
+    cells[cols.status] = statusOf(t.id);
+    cells[cols.actual] = actualOf(t.id);
+    return row(cells);
+  })].join('\n');
+}
+
+async function copy(text) {
+  try { await navigator.clipboard.writeText(text); toast('Copied'); }
+  catch {
+    const dialog = document.getElementById('copy-dialog');
+    const area = document.getElementById('copy-text');
+    area.value = text;
+    dialog.showModal();
+    area.select();
+  }
+}
+
+function toast(message) {
+  const el = document.getElementById('source');
+  const previous = el.textContent;
+  el.textContent = message;
+  setTimeout(() => { el.textContent = previous; }, 1200);
+}
+
+// ---------- Loading ----------
+
+function usePlan(text, source, loadedAt = new Date().toISOString()) {
+  try {
+    plan = parsePlan(text);
+  } catch (err) {
+    alert(err.message);
+    return;
+  }
+  byId = Object.fromEntries(plan.rows.map(t => [t.id, t]));
+  Object.assign(state, { planText: text, source, loadedAt });
+  // Drop local changes that PLAN.md has caught up with.
+  for (const [id, o] of Object.entries(state.overrides)) {
+    const t = byId[id];
+    if (!t || (o.status === t.status && o.actual === t.actual)) delete state.overrides[id];
+  }
+  saveState();
+  render();
+}
+
+const SAME_FOLDER = 'PLAN.md (same folder)';
+
+async function fetchPlan() {
+  try {
+    const response = await fetch(new URL('PLAN.md', location.href), { cache: 'no-store' });
+    if (!response.ok) return false;
+    const text = await response.text();
+    if (!plan || text !== state.planText || state.source !== SAME_FOLDER) usePlan(text, SAME_FOLDER);
+    return true;
+  } catch {
+    return false; // file:// pages can't fetch siblings; the Open button or a saved copy is used instead
+  }
+}
+
+function readFile(file) {
+  if (!file) return;
+  file.text().then(text => usePlan(text, file.name));
+}
+
+document.getElementById('open').onclick = () => document.getElementById('file').click();
+document.getElementById('file').onchange = e => readFile(e.target.files[0]);
+document.getElementById('reload').onclick = async () => {
+  if (!(await fetchPlan())) document.getElementById('file').click();
+};
+document.getElementById('copy-board').onclick = () => plan && copy(boardMarkdown());
+document.getElementById('reset').onclick = () => {
+  if (!plan || !confirm('Discard local status changes and use the statuses in PLAN.md?')) return;
+  state.overrides = {};
+  saveState();
+  render();
+};
+document.getElementById('app').addEventListener('click', e => {
+  const cardEl = e.target.closest('.card');
+  if (cardEl) showDrawer(cardEl.dataset.id);
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+document.addEventListener('dragover', e => e.preventDefault());
+document.addEventListener('drop', e => { e.preventDefault(); readFile(e.dataTransfer.files[0]); });
+
+// Sessions update PLAN.md while the board is open, so it reloads the file whenever the tab gets focus again.
+window.addEventListener('focus', () => { if (state.source === SAME_FOLDER) fetchPlan(); });
+
+(async () => {
+  if (await fetchPlan()) return;
+  if (state.planText) usePlan(state.planText, `saved copy of ${state.source || 'PLAN.md'}`, state.loadedAt);
+})();
+</script>
+</body>
+</html>
