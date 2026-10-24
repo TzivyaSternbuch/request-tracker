@@ -73,11 +73,12 @@ flagged and resolved explicitly, never silently followed or silently ignored.
 
 - Backend: .NET 10, ASP.NET Core **controllers** (not minimal APIs), C# with nullable enabled.
 - Frontend: Angular 22, standalone components, Signals + RxJS interop, Angular Material.
-- Database: **TBD — see "Database" below.** Do not write DB-specific code until it is decided here.
+- Database: SQL Server 2022 (Developer, in Docker) via EF Core 10 — details in "Database" below.
 - Tests: xUnit, `WebApplicationFactory` for integration tests.
 
-Allowed packages: FluentValidation, Microsoft.Extensions.Caching.Hybrid, the chosen DB provider/EF Core packages,
-Microsoft.AspNetCore.Mvc.Testing, Testcontainers (for the chosen DB), Angular Material.
+Allowed packages: FluentValidation, Microsoft.Extensions.Caching.Hybrid, Microsoft.EntityFrameworkCore.SqlServer,
+Microsoft.EntityFrameworkCore.Design (migrations), Microsoft.AspNetCore.Mvc.Testing, Testcontainers.MsSql, Angular Material.
+`dotnet-ef` is a local tool (`.config/dotnet-tools.json`), not a package.
 **Not allowed:** AutoMapper, MediatR, FluentAssertions, NgRx, any repository/unit-of-work generic base classes.
 
 ## Repository layout
@@ -198,11 +199,62 @@ meaningful body) and are added to this table.
 - `DataSeeder` in Infrastructure, deterministic (fixed random seed), idempotent: drops and recreates test data.
 - Run with `dotnet run --project backend/src/RequestTracker.Api -- seed`. Inserts in batches, not row by row.
 
-## Database — TBD
+## Database — SQL Server
 
-Not chosen yet. When chosen, fill in: provider + packages, concurrency token type (e.g. `rowversion` / `xmin` / integer
-version), how the conditional update is written, migrations approach, the index list with the query each index serves,
-and the Testcontainers image used by integration tests. Until then, do not write provider-specific code.
+Chosen over PostgreSQL (comparable; considered alternative in README) and MongoDB (audit-in-transaction needs a replica
+set; weaker EF Core support): native `rowversion`, plain transactions for audit, first-class execution plans.
+
+### Provider and types
+- SQL Server 2022, EF Core 10, provider `Microsoft.EntityFrameworkCore.SqlServer`.
+- Default collation `SQL_Latin1_General_CP1_CI_AS` is case-insensitive: filters and search never call `ToLower()`
+  (it makes predicates non-sargable).
+- `Id` is `int` identity. Strings are `nvarchar(n)` with explicit max lengths (`nvarchar(max)` can't be an index key).
+  Timestamps are `datetimeoffset`, always UTC.
+- Enums are stored as `int`, so sorting by `priority` is semantic (Low < Medium < High) and runs in the DB.
+
+### Concurrency token
+- `Version` is a `rowversion` column (`byte[]`, `IsRowVersion()`). The DB changes it on every update, so no code path
+  can forget to bump it.
+- In DTOs it is `byte[]`, serialized as a base64 string. The frontend types it as `version: string` and treats it as opaque.
+
+### Conditional update
+`TryUpdateStatusAsync` in the repository, inside one explicit transaction (`BeginTransactionAsync`):
+1. `Where(r => r.Id == id && r.Version == expectedVersion).ExecuteUpdateAsync(...)` sets `Status` and `UpdatedAt`;
+   `Version` changes in the same statement.
+2. 0 rows affected → `AnyAsync` on `Id` decides `NotFound` vs `Conflict`; nothing is written.
+3. 1 row affected → insert the `RequestStatusHistory` row, commit, return `Updated`.
+
+The service re-reads the DTO to return the new `version`. Bulk calls the same method per item, one transaction per item
+(Partial Success).
+
+### Migrations
+- EF Core migrations live in Infrastructure; the startup project is Api.
+- The `seed` command and Development startup run `Database.MigrateAsync()`, so running the app needs no manual
+  `dotnet ef` step. Integration tests migrate the container DB the same way.
+
+### Indexes
+Initial set; validated or adjusted in the performance task, with results in `docs/PERFORMANCE.md`.
+
+| Index | Serves |
+|---|---|
+| PK clustered `Requests(Id)` | get by id; `Id` tiebreaker |
+| `IX_Requests_CreatedAt (CreatedAt)` | default sort `createdAt desc` + paging without a sort step (the clustered key `Id` is implicitly in the index = tiebreaker order) |
+| `IX_Requests_Status_CreatedAt (Status, CreatedAt)` | `status` filter + default sort; stats `GROUP BY Status` |
+| `IX_Requests_Priority_CreatedAt (Priority, CreatedAt)` | `priority` filter + default sort; stats `GROUP BY Priority` |
+| `IX_Requests_AssignedTo_CreatedAt (AssignedTo, CreatedAt)` | `assignedTo` filter + default sort |
+| `IX_Requests_OrganizationName (OrganizationName)` | `organizationName` filter — a **prefix** match (`StartsWith` → `LIKE 'x%'`, sargable) |
+| `IX_RequestStatusHistory_RequestId_ChangedAt (RequestId, ChangedAt DESC)` | history endpoint, newest first |
+
+Deliberately not indexed:
+- `search` (`Contains` → `LIKE '%x%'`) can't seek and scans. This is the documented bottleneck; the proposed
+  improvement is Full-Text Search (not included in the default Docker image).
+- `UpdatedAt` and `Title` sorts sort the filtered set; add an index only if measurement shows a need. Leaving
+  `UpdatedAt` unindexed also keeps status updates from maintaining an extra index.
+
+### Tests and local run
+- Testcontainers image: `mcr.microsoft.com/mssql/server:2022-latest` (needs Docker, about 2 GB RAM).
+- Local run: SQL Server in Docker, connection string in `appsettings.Development.json` (dev-only password). How the
+  container is started (e.g. a compose file) is decided in the run-setup task.
 
 ## Frontend conventions
 

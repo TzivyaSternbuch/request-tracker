@@ -21,6 +21,8 @@ only when it explains something the code and CLAUDE.md don't.
 - Sorting always ends with a unique tiebreaker (`Id`). Without it, rows with equal sort values can repeat across pages
   or disappear between them.
 - Blank filter strings mean "no filter"; otherwise an empty text box filters for empty values.
+- 0 rows from the conditional update is ambiguous (missing row or stale version). One existence check after the failed
+  update tells `NotFound` from `Conflict` without an extra read on the happy path.
 - The `COUNT` over 100k filtered rows is the likely bottleneck of the list endpoint — measure it for PERFORMANCE.md.
 
 ## Angular
