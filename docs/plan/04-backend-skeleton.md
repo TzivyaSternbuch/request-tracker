@@ -41,8 +41,11 @@ task 05 registers the DbContext in it.
 - Integration tests through `WebApplicationFactory`, **no database and no Docker needed**: a test-only controller in
   the test assembly throws each exception type and returns an enum, so the real pipeline (handler registration,
   middleware order, JSON options) is what's tested. *My call:* the playback said "unit tests on the handler"; testing
-  through the host instead also proves registration and ordering, at the same cost. One unit test remains for the one
-  path the host can't reach reliably (client-aborted request).
+  through the host instead also proves registration and ordering, at the same cost. All test classes share one host
+  (xUnit collection fixture), which from task 05 on also means one SQL Server container. `RequestTracker.UnitTests`
+  has no tests yet; the first come with task 10.
+- Client-aborted requests: the framework's exception handler middleware ends them itself (status 499, no Error log)
+  before any `IExceptionHandler` runs, so the handler has no branch for them. An integration test checks this.
 - Testcontainers is not added until task 05, when there is something to put in the database.
 - Manual: `docker compose up -d` → container healthy; run the API → `/swagger` shows the UI; `GET /api/nope` → 404
   ProblemDetails.
@@ -80,7 +83,7 @@ task 05 registers the DbContext in it.
 2. **Errors that aren't exceptions** — unknown route, wrong HTTP method, malformed JSON body must be ProblemDetails,
    not empty bodies or plain text. → Task 3, `UnknownRoute_…`, `WrongMethod_…`, `MalformedJson_…`.
 3. **Client disconnects mid-request** — an `OperationCanceledException` from an aborted request must not be logged as
-   an Error 500. → Task 3, `TryHandleAsync_RequestAborted_DoesNotLogError` (unit test).
+   an Error 500. → Task 3, `AbortedRequest_DoesNotLogError` (integration test with a log-capturing provider).
 4. **Validation error keys** — the client reads `errors.status`, not `errors.Status`. → Task 3,
    `Throw_ValidationException_Returns400WithCamelCaseErrors`, and Task 4, `MissingRequiredField_…`.
 5. **Enum sent as a number** — `{"kind": 1}` must be a 400, not silently accepted. → Task 4,
@@ -116,10 +119,13 @@ task 05 registers the DbContext in it.
   `Class1.cs`); `xunit` for both test projects (delete `UnitTest1.cs`). Add all five to the solution.
 - [ ] **Step 3: `Directory.Build.props`** sets `TargetFramework` `net10.0`, `Nullable` `enable`, `ImplicitUsings`
   `enable`; remove those three from the individual `.csproj` files.
-- [ ] **Step 4: References.** Api → Core, Infrastructure. Infrastructure → Core. Core → nothing. UnitTests → Core, Api.
-  IntegrationTests → Api. Packages: Core gets `FluentValidation` and `Microsoft.Extensions.Caching.Hybrid`; Api gets
-  `Microsoft.AspNetCore.OpenApi` (already in the template) and `Swashbuckle.AspNetCore.SwaggerUI`; IntegrationTests
-  gets `Microsoft.AspNetCore.Mvc.Testing`.
+- [ ] **Step 4: References.** Api → Core, Infrastructure. Infrastructure → Core. Core → nothing. UnitTests → Core.
+  IntegrationTests → Api. Packages: Core gets `FluentValidation` and `Microsoft.Extensions.Caching.Hybrid`;
+  Infrastructure gets `Microsoft.Extensions.Configuration.Abstractions` (for `IConfiguration`, until EF Core brings it
+  in task 05); Api gets `Microsoft.AspNetCore.OpenApi` 10.0.13 (the template's 10.0.10 pulls `Microsoft.OpenApi` 2.0.0,
+  which has a high-severity advisory) and `Swashbuckle.AspNetCore.SwaggerUI`; IntegrationTests gets
+  `Microsoft.AspNetCore.Mvc.Testing` at the same version as OpenApi. Remove the template's HTTPS redirect and HTTPS
+  profile.
 - [ ] **Step 5: Implement `AddCore`, `AddInfrastructure`, `CacheKeys`** as in Interfaces. `Program.cs` calls
   `AddCore()`, `AddInfrastructure(builder.Configuration)` and `AddControllers()`, maps controllers. `launchSettings.json`
   keeps one `http` profile on `http://localhost:5100`, `launchUrl` `swagger`, `ASPNETCORE_ENVIRONMENT=Development`.
@@ -145,14 +151,16 @@ task 05 registers the DbContext in it.
 - [ ] **Step 2: Connection string** in `appsettings.Development.json`:
   `Server=localhost,1433;Database=RequestTracker;User Id=sa;Password=RequestTracker_Dev1!;TrustServerCertificate=True`.
   `appsettings.json` has no connection string.
-- [ ] **Step 3: Local tool.** `dotnet new tool-manifest`, `dotnet tool install dotnet-ef` at the latest 10.0.x.
+- [ ] **Step 3: Local tool.** `dotnet new tool-manifest`, `dotnet tool install dotnet-ef` at the latest 10.0.x. The
+  manifest belongs in `backend/.config/` (the tool may create it at the repo root; move it).
 - [ ] **Step 4: Verify.**
   Run: `docker compose up -d` then `docker compose ps` → `sqlserver` shows `healthy` (allow ~30 s).
   Run: `dotnet tool restore` then `dotnet ef --version` → `10.0.x`.
 - [ ] **Step 5: README "Run locally"** in `backend/README.md`, keeping the existing pointer line: prerequisites (.NET 10
   SDK, Docker Desktop running, ~2 GB RAM for SQL Server), `docker compose up -d`, `dotnet tool restore`,
   `dotnet run --project src/RequestTracker.Api`, Swagger UI at `http://localhost:5100/swagger`, `dotnet test`
-  (no Docker needed yet). One line: the schema is applied on startup from task 05 on.
+  (no Docker needed yet). One line: the schema is applied on startup from task 05 on. One line: port 1433 clashes with
+  a local SQL Server.
 - [ ] **Step 6: Commit** — stop, show, ask. Proposed: `04: Add SQL Server compose file and local run instructions`
 
 ### Task 3: Error contract
@@ -162,35 +170,37 @@ task 05 registers the DbContext in it.
   `InvalidStatusTransitionException.cs`
 - Create: `src/RequestTracker.Api/ErrorHandling/GlobalExceptionHandler.cs`
 - Modify: `src/RequestTracker.Api/Program.cs`
-- Create: `tests/RequestTracker.IntegrationTests/TestHost/ApiFactory.cs`, `TestHost/TestController.cs`,
-  `ErrorHandlingTests.cs`
-- Create: `tests/RequestTracker.UnitTests/ErrorHandling/GlobalExceptionHandlerTests.cs`,
-  `ErrorHandling/FakeLogger.cs`
+- Create: `tests/RequestTracker.IntegrationTests/TestHost/ApiFactory.cs`, `TestHost/ApiCollection.cs`,
+  `TestHost/TestController.cs`, `TestHost/CapturingLoggerProvider.cs`, `ProblemAssert.cs`, `ErrorHandlingTests.cs`
 
 **Interfaces:**
 - Produces: the three exceptions, each `sealed`, deriving from `Exception`, constructor `(string message)`. Later tasks
   may add constructors (e.g. task 10 adds from/to statuses).
-- Produces: `GlobalExceptionHandler(IProblemDetailsService problemDetails, ILogger<GlobalExceptionHandler> logger) :
-  IExceptionHandler`.
+- Produces: `GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger) : IExceptionHandler`.
 - Produces: `ApiFactory : WebApplicationFactory<Program>` — adds the test assembly as an MVC application part in
-  `ConfigureTestServices`; later integration tests reuse it (task 05 adds the Testcontainers DB to it).
+  `ConfigureTestServices`; later integration tests reuse it (task 05 adds the Testcontainers DB to it). Test classes
+  share one instance through `[Collection(ApiCollection.Name)]` (`ApiCollection : ICollectionFixture<ApiFactory>`).
 - Produces: `TestController` (`[ApiController]`, route `test`) — `GET throw/{kind}` throws by kind (`notfound`,
-  `conflict`, `transition`, `validation`, `unexpected`); `GET json` and `POST json` used by Task 4.
+  `conflict`, `transition`, `validation`, `validation-nested`, `validation-message`, `validation-unnamed`, `aborted`,
+  `unexpected`); `GET json` and `POST json` used by Task 4.
+- Produces: `ProblemAssert.IsProblemAsync(HttpResponseMessage, HttpStatusCode) : Task<JsonElement>` — asserts status,
+  `application/problem+json` and `status` in the body, returns the body.
 
-Mapping inside `TryHandleAsync`, in this order:
+Mapping inside `TryHandleAsync`:
 
 | Exception | Status | `detail` | Extra |
 |---|---|---|---|
-| `OperationCanceledException` and `RequestAborted` cancelled | none written; return `true` | — | log at Information at most, never Error |
-| `ValidationException` (FluentValidation) | 400 | — | `errors`: `PropertyName` camelCased (`JsonNamingPolicy.CamelCase`) → messages |
+| `ValidationException` (FluentValidation) | 400 | the exception message only when it has no errors | `errors`: every `.`-separated segment of `PropertyName` camelCased (`Items[0].Version` → `items[0].version`); a null or empty name goes under `""` |
 | `NotFoundException` | 404 | exception message | |
 | `ConcurrencyConflictException` | 409 | exception message | |
 | `InvalidStatusTransitionException` | 422 | exception message | |
 | anything else | 500 | none | log Error with the exception, message template only |
 
-Write the response through `problemDetails.TryWriteAsync` so `type`, `title` and `traceId` come from the framework.
+Write the response with `TypedResults.Problem(problem).ExecuteAsync(httpContext)` and return `true`: it goes through
+`IProblemDetailsService` (so `type`, `title` and `traceId` come from the framework) and falls back to plain JSON when
+the client's `Accept` header excludes JSON, so `detail` is never lost.
 
-- [ ] **Step 1: Write the failing integration tests** in `ErrorHandlingTests` (`IClassFixture<ApiFactory>`):
+- [ ] **Step 1: Write the failing integration tests** in `ErrorHandlingTests` (`[Collection(ApiCollection.Name)]`):
 
 ```csharp
 [Theory]
@@ -205,6 +215,22 @@ public async Task Throw_DomainException_ReturnsMappedProblemDetails(string kind,
 // TestController throws ValidationException([new ValidationFailure("Status", "Status is required.")])
 // assert 400, problem+json, errors["status"] == ["Status is required."], no "Status" key
 
+[Fact] Throw_NestedValidationException_CamelCasesEverySegment
+// failure on "Items[0].Version" → errors["items[0].version"]
+
+[Fact] Throw_ValidationExceptionWithoutErrors_Returns400WithMessage
+// new ValidationException("Between 1 and 100 items are allowed.") → 400, detail == that message
+
+[Fact] Throw_ValidationFailureWithoutPropertyName_Returns400UnderEmptyKey
+// ValidationFailure(null!, message) → 400, errors[""] == [message]
+
+[Fact] Throw_DomainExceptionWithHtmlAccept_StillReturnsProblemDetailsWithDetail
+// GET throw/conflict with "Accept: text/html" → 409, problem+json, detail == the conflict message
+
+[Fact] AbortedRequest_DoesNotLogError
+// factory.WithWebHostBuilder adds a CapturingLoggerProvider; TestController calls HttpContext.Abort() and throws
+// OperationCanceledException; the client call throws; assert no LogLevel.Error was logged
+
 [Fact] Throw_UnexpectedException_Returns500WithoutInternals
 // TestController throws new InvalidOperationException("secret-internal-detail")
 // assert 500, problem+json, raw body does not contain "secret-internal-detail",
@@ -216,21 +242,18 @@ public async Task Throw_DomainException_ReturnsMappedProblemDetails(string kind,
 ```
 
 - [ ] **Step 2: Run** `dotnet test tests/RequestTracker.IntegrationTests` → the new tests fail (exceptions and handler
-  don't exist yet / 500s are HTML or empty).
+  don't exist yet / 500s are HTML or empty). Expected to pass already: `MalformedJson_…` (`[ApiController]` returns
+  validation ProblemDetails by default) and `AbortedRequest_DoesNotLogError` (the framework handles aborts); both stay
+  as regression guards.
 - [ ] **Step 3: Implement** the exceptions and `GlobalExceptionHandler` per the table. In `Program.cs`:
   `AddProblemDetails()`, `AddExceptionHandler<GlobalExceptionHandler>()`; pipeline starts with
   `UseExceptionHandler()` then `UseStatusCodePages()`. In `AddControllers`, add
   `options.ModelMetadataDetailsProviders.Add(new SystemTextJsonValidationMetadataProvider())` so binding errors use the
   JSON (camelCase) names.
-- [ ] **Step 4: Run** the integration tests → all pass.
-- [ ] **Step 5: Write the unit test** `GlobalExceptionHandlerTests.TryHandleAsync_RequestAborted_DoesNotLogError`:
-  `DefaultHttpContext` with `RequestAborted` from a cancelled `CancellationTokenSource`, exception
-  `new OperationCanceledException()`; hand-written `FakeLogger<T>` records log levels; a fake `IProblemDetailsService`
-  records calls. Assert: returns `true`, no `LogLevel.Error` entry, problem details service not called.
-- [ ] **Step 6: Run** `dotnet test` → all pass.
-- [ ] **Step 7: Manual check** — `dotnet run --project src/RequestTracker.Api`, `GET http://localhost:5100/api/nope`
+- [ ] **Step 4: Run** `dotnet test` → all pass.
+- [ ] **Step 5: Manual check** — `dotnet run --project src/RequestTracker.Api`, `GET http://localhost:5100/api/nope`
   → 404 `application/problem+json` with `traceId`.
-- [ ] **Step 8: Commit** — stop, show, ask. Proposed: `04: Map errors to ProblemDetails with a global handler`
+- [ ] **Step 6: Commit** — stop, show, ask. Proposed: `04: Map errors to ProblemDetails with a global handler`
 
 ### Task 4: JSON contract, OpenAPI and Swagger UI
 
@@ -241,9 +264,10 @@ public async Task Throw_DomainException_ReturnsMappedProblemDetails(string kind,
 
 **Interfaces:**
 - Consumes: `ApiFactory`, `TestController` from Task 3.
-- `TestController`: `GET json` returns `new TestPayload("Value", TestKind.Medium)`; `POST json` binds a `TestPayload`
-  and echoes it. `TestPayload(string SomeValue, TestKind Kind)` record and `enum TestKind { Low, Medium, High }` live in
-  the test assembly, with `SomeValue` marked `[Required]`.
+- `TestController`: `GET json` returns a `TestPayload` with `SomeValue = "Value"`, `Kind = TestKind.Medium`;
+  `POST json` binds a `TestPayload` and echoes it. `TestPayload` is a record with init properties (`[Required] string?
+  SomeValue`, `TestKind Kind`) and `enum TestKind { Low, Medium, High }`, both in the test assembly. Not a positional
+  record: with DataAnnotations on a positional record, model-binding error keys stay PascalCase (`SomeValue`).
 
 - [ ] **Step 1: Write the failing tests:**
 
@@ -258,13 +282,16 @@ public async Task Throw_DomainException_ReturnsMappedProblemDetails(string kind,
 
 // OpenApiTests
 [Fact] Get_OpenApiDocument_Returns200   // GET /openapi/v1.json → 200, body contains "\"openapi\""
+[Fact] Get_OpenApiDocument_DescribesEnumsAsStrings // components.schemas.TestKind.enum == ["Low","Medium","High"]
 [Fact] Get_SwaggerUi_Returns200         // GET /swagger/index.html → 200, text/html
 ```
 
 - [ ] **Step 2: Run** → enum/number and OpenAPI/Swagger tests fail.
-- [ ] **Step 3: Implement.** `AddControllers().AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new
-  JsonStringEnumConverter(allowIntegerValues: false)))` (camelCase is the web default). `AddOpenApi()`. In Development
-  only: `MapOpenApi()` and `UseSwaggerUI(o => o.SwaggerEndpoint("/openapi/v1.json", "v1"))`.
+- [ ] **Step 3: Implement.** A local `static void ConfigureJson(JsonSerializerOptions options)` in `Program.cs` adds
+  `new JsonStringEnumConverter(allowIntegerValues: false)` (camelCase is the web default). Call it from both
+  `AddControllers().AddJsonOptions(...)` and `ConfigureHttpJsonOptions(...)`: the OpenAPI document reads the HTTP JSON
+  options, not the MVC ones, and without them it describes enums as integers. `AddOpenApi()`. In Development only:
+  `MapOpenApi()` and `UseSwaggerUI(o => o.SwaggerEndpoint("/openapi/v1.json", "v1"))`.
 - [ ] **Step 4: Run** `dotnet test` → all pass.
 - [ ] **Step 5: Manual check** — run the API, open `http://localhost:5100/swagger`: the page loads the v1 document.
   Check the test controller does **not** appear (it lives only in the test assembly).
@@ -272,8 +299,7 @@ public async Task Throw_DomainException_ReturnsMappedProblemDetails(string kind,
 
 ### Task 5: Wrap-up
 
-**Files:**
-- Modify (main repo, coordinating session or with the PR): `docs/AI_USAGE.md` — task 04 entry.
+No per-task `docs/AI_USAGE.md` entry: task 19 writes that file once for the whole project.
 
 - [ ] **Step 1: Full check** in `backend/`: `dotnet build` (0 warnings), `dotnet test` (all green), `docker compose up
   -d` healthy, API starts and serves `/swagger`.
@@ -282,5 +308,3 @@ public async Task Throw_DomainException_ReturnsMappedProblemDetails(string kind,
   `04: Backend skeleton, cross-cutting concerns and local run setup`. The description lists: the deviations above
   ("Calls made while planning", integration tests instead of handler unit tests), that `AddInfrastructure` is empty
   until 05, and that the schema-on-startup criterion moved to 05.
-- [ ] **Step 4: AI_USAGE entry** — what was generated, what was checked by hand (error mapping, no internals in 500,
-  port and password choices).
