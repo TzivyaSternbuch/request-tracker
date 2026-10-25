@@ -40,8 +40,7 @@ Grading reminders (they shape every decision):
 8. **Error contract**: every error response is ProblemDetails with the status semantics in "Error responses" below.
 9. **Status transitions** are defined in exactly one place (`Core/Domain/StatusTransitions.cs`), implementing the
    matrix in `docs/PLAN.md` → Status transitions.
-10. **Dependencies**: only packages from the allow-list in "Stack". Adding one requires asking first.
-11. **Logging**: no sensitive data (request bodies, `changedBy` values, full DTOs) in logs.
+10. **Logging**: no sensitive data (request bodies, `changedBy` values, full DTOs) in logs.
 
 ## Reference implementations
 
@@ -80,9 +79,6 @@ flagged and resolved explicitly, never silently followed or silently ignored.
 - Database: SQL Server 2022 (Developer, in Docker) via EF Core 10 — details in "Database" below.
 - Tests: xUnit, `WebApplicationFactory` for integration tests.
 
-Allowed packages: FluentValidation, Microsoft.Extensions.Caching.Hybrid, Microsoft.EntityFrameworkCore.SqlServer,
-Microsoft.EntityFrameworkCore.Design (migrations), Microsoft.AspNetCore.OpenApi (OpenAPI document),
-Microsoft.AspNetCore.Mvc.Testing, Testcontainers.MsSql, Angular Material.
 `dotnet-ef` is a local tool (`.config/dotnet-tools.json`), not a package.
 **Not allowed:** AutoMapper, MediatR, FluentAssertions, NgRx, any repository/unit-of-work generic base classes.
 
@@ -300,7 +296,7 @@ src/app/
 
 ## Tests
 - Naming: `MethodName_Scenario_ExpectedResult`. Arrange / Act / Assert separated by a blank line.
-- Unit tests: services and `StatusTransitions`, with hand-written fakes (no mocking library unless added to the allow-list).
+- Unit tests: services and `StatusTransitions`, with hand-written fakes.
 - Integration tests: real API via `WebApplicationFactory` + real DB via Testcontainers.
 - Required minimum: valid query/update, invalid input, concurrency conflict, one integration test.
 

@@ -357,7 +357,7 @@ because the API is the only part that needs the database.
 
 - **Required:**
   - The solution with the Api, Core and Infrastructure projects and the unit and integration test projects. Project
-    references enforce the layering. Packages come from the allow-list only.
+    references enforce the layering.
   - The shared behavior every feature relies on: camelCase JSON with enums as strings; one global error handler, so
     every error is ProblemDetails with the documented status code, and unexpected errors are logged with no internals
     in the response; one DI extension per project; the time provider and the hybrid cache; the cache key constants;
