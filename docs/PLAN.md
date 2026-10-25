@@ -241,7 +241,7 @@ starts and when it is merged.
 | 01 | Requirements analysis and architecture conventions | US-0.1 | Planning | main | — | 3 | done | |
 | 02 | Database selection and schema design | US-0.1 | Planning | main | — | 2 | done | |
 | 03 | Work plan (this document) | US-0.1 | Planning | main | 01, 02 | 2 | in review | |
-| 21 | Repositories, submodules and pointer updates | US-1.3 | Foundation | main, server, client | 03 | 3 | in progress | |
+| 21 | Repositories, submodules and pointer updates | US-1.3 | Foundation | main, server, client | 03 | 3 | done | |
 | 04 | Backend skeleton, cross-cutting concerns and local run setup | US-1.1 | Foundation | server | 21 | 5 | todo | |
 | 05 | Data model, EF configuration and initial migration | US-1.1 | Foundation | server | 04 | 3 | todo | |
 | 06 | Test data seeder (100,000 requests) | US-1.2 | Foundation | server | 05 | 3 | todo | |
