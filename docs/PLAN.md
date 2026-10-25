@@ -187,7 +187,7 @@ sessions never edit the same file at once:
 
 | Track | Tasks, in merge order | Owns |
 |---|---|---|
-| Backend | 10 → 13 → 12 → 11 | `request-tracker-server` (including the `.http` file), and the API contract table in `CLAUDE.md` |
+| Backend | 10 → 13 → 12 → 11 | `request-tracker-server`, and the API contract table in `CLAUDE.md` |
 | Frontend | 14 → 16 → 15 | `request-tracker-client` |
 | Performance | 17 | `docs/PERFORMANCE.md`; in the server repository, the entity configurations and a new migration, only if an index changes |
 | Coordinating session | M1, documentation tasks | The main repository, except the API contract table |
@@ -361,11 +361,11 @@ because the API is the only part that needs the database.
   - The shared behavior every feature relies on: camelCase JSON with enums as strings; one global error handler, so
     every error is ProblemDetails with the documented status code, and unexpected errors are logged with no internals
     in the response; one DI extension per project; the time provider and the hybrid cache; the cache key constants;
-    an OpenAPI document in Development; an `.http` file for example calls.
+    an OpenAPI document and a Swagger UI page in Development, for manual calls.
   - The local run setup: SQL Server 2022 in Docker with one command, the dev connection string, `dotnet-ef` as a local
     tool, and a first "Run locally" section in the README.
 - **Deliverable:** The build and tests pass, including a test of the exception-to-status mapping. `docker compose up -d`
-  starts SQL Server. The API starts, serves the OpenAPI document and returns errors as ProblemDetails.
+  starts SQL Server. The API starts, serves the OpenAPI document and Swagger UI, and returns errors as ProblemDetails.
 - **Guidance:** `CLAUDE.md` → Stack, Layer responsibilities, DI lifetimes, Error responses, Cache. Creates all shared
   backend files.
 
@@ -435,7 +435,7 @@ Exam: §1, §8, §10 · Branch: `feature/08-list-api` · Plan file: yes · First
     every I/O call.
   - The integration test harness (the real API and a SQL Server container), used by every later integration test.
 - **Deliverable:**
-  - The endpoint, with example calls in the `.http` file.
+  - The endpoint, with every response code declared, so Swagger UI shows the real contract.
   - Unit tests for parameter validation.
   - Integration tests: combined filters with sort and paging return the right page and total count; invalid
     parameters return 400 with `errors`.
@@ -519,7 +519,7 @@ Exam: §2, §3, §7, §8 · Branch: `feature/10-status-concurrency` · Plan file
   - On success, `Status`, `UpdatedAt` and `Version` change together, and the audit row is written in the same
     transaction. The statistics cache is invalidated after the commit.
   - Conflicts are logged as Warning, without `changedBy`.
-- **Deliverable:** The endpoints, with `.http` examples, and these tests:
+- **Deliverable:** The endpoints, with every response code declared, and these tests:
   - unit tests for every cell of the transition matrix, and for the service outcomes (404, 422, 409; cache invalidated
     only after a successful update);
   - integration test, stale version: update, then update again with the old version → 409, and no second audit row;
@@ -564,7 +564,7 @@ Exam: §3 · Branch: `feature/12-history-api`
 - **Required:** `GET api/requests/{id}/history`, newest first, paged with the same `page`/`pageSize` rules and result
   shape as the list. Paging keeps the response bounded and tells the client how many entries exist. An unknown request
   returns 404. An existing request with no changes returns an empty page.
-- **Deliverable:** The endpoint, an `.http` example, the updated row in the API contract table, and integration tests:
+- **Deliverable:** The endpoint, with every response code declared, the updated row in the API contract table, and integration tests:
   - after two updates, the history has two rows, newest first, with every audit field;
   - with more entries than the page size, `totalCount` is correct and the second page holds the older entries;
   - an unknown ID returns 404.
@@ -604,7 +604,7 @@ Exam: §3, §4, §7 · Branch: `feature/11-bulk-status`
   - Each item gets the same version check, transition check and audit as a single update, in its own transaction.
     Per-item outcomes are returned as data, not exceptions.
   - The statistics cache is invalidated once if any item succeeded. One summary log line records the counts only.
-- **Deliverable:** The endpoint, with an `.http` example, and these tests:
+- **Deliverable:** The endpoint, with every response code declared, and these tests:
   - unit tests: mixed outcomes fill `succeeded` and `failed` correctly; a missing or malformed `version`, a duplicate
     ID and 101 items each return 400;
   - integration test: a batch with one valid, one missing and one stale-version item returns 200 with the right
@@ -631,7 +631,7 @@ Exam: §1, §7 · Branch: `feature/13-stats-cache`
   database. The result is cached for 5 minutes under the statistics tag that tasks 10 and 11 invalidate. The statistics
   are global, not per filter: that means one cache entry, which is cheap to invalidate. Filtered aggregations would
   need one entry per filter combination.
-- **Deliverable:** The endpoint, with an `.http` example, and these tests:
+- **Deliverable:** The endpoint, with every response code declared, and these tests:
   - a unit test that a repeated call is served from the cache;
   - integration tests: the counts are correct for known test data, and they change right after a status update.
 - **Guidance:** `CLAUDE.md` → Cache.
@@ -817,7 +817,8 @@ A code task is done when all of the following are true:
 3. `/code-review` passed and the developer reviewed the change.
 4. The mandatory constraints in `CLAUDE.md` hold, in particular: no filtering, sorting or paging on the client; DTOs
    only; async with `CancellationToken`; ProblemDetails for errors; no sensitive data in logs.
-5. API changes are reflected in `CLAUDE.md` → API contract and in the `.http` file.
+5. API changes are reflected in `CLAUDE.md` → API contract, and every response code is declared, so the OpenAPI
+   document and Swagger UI show the real contract.
 6. The PR title starts with the task ID or IDs, and the description lists the shared files the task touched.
 7. `docs/AI_USAGE.md` has an entry for the task, and the task's status and actual effort are updated in this plan.
 8. After the merge and the submodule pointer update, the [integration check](#integration-check-after-each-merge) on
@@ -831,7 +832,7 @@ The following items are left out on purpose, to avoid over-engineering. Each one
 |---|---|
 | Authentication and authorization | The spec doesn't ask for them. `changedBy` comes from the client's "acting as" name. Listed in the README as a known limitation. |
 | Creating, editing or deleting requests | The spec covers finding, viewing, status updates and statistics. Data comes from the seeder. |
-| Bulk update UI | §5 doesn't require it. The endpoint is covered by tests and the `.http` file. |
+| Bulk update UI | §5 doesn't require it. The endpoint is covered by tests and can be called from Swagger UI. |
 | Full-Text Search | Not included in the default SQL Server Docker image. It is the documented improvement for the search bottleneck. |
 | Distributed cache and several server instances | §7 asks for a description. The solution runs as one instance; the README explains what changes for several. |
 | Containers for the API and UI | Docker runs only SQL Server. The API and UI start with `dotnet run` and `npm start`, which keeps the run steps short. |
