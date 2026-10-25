@@ -106,7 +106,7 @@ frontend/                           submodule → request-tracker-client: Angula
 docs/
   code-patterns.md implementation notes for the reference code
   PLAN.md          work plan: features → tasks, dependencies, estimates (exam section 9)
-  board.html       task board that reads PLAN.md; serve it with `node docs/board-server.mjs`
+  board.html       task board that reads and updates PLAN.md; serve it from the main folder: `node docs/board-server.mjs`
   plan/            per-task implementation plans (e.g. from superpowers:writing-plans), <task-id>-<short-name>.md
   PERFORMANCE.md   query plans, indexes, bottlenecks (exam section 6)
   AI_USAGE.md      where AI was used and what was checked/changed manually (exam section 11)

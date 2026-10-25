@@ -28,8 +28,9 @@ task. Work that was left out on purpose is listed in [Out of scope](#out-of-scop
 - **Roles** in user stories: *handler* (a person who works on requests), *team lead*, *reviewer* (the exam reviewer
   running the solution) and *developer*. The system has no authentication; roles only describe who needs the story.
 - **Board:** `docs/board.html` shows this plan as a task board, with what's ready to start and a timeline. Run
-  `node docs/board-server.mjs` and open `http://localhost:4300/`; the board reads this file, so it never needs its own
-  copy of the tasks.
+  `node docs/board-server.mjs` from the main folder (on `main`, not a worktree) and open `http://localhost:4300/`. The
+  board reads this file, so it never needs its own copy of the tasks, and a status or actual-hours change made on the
+  board is written straight into the [task board](#task-board) table here. Commit those changes like any other edit.
 
 ## Repositories
 

@@ -6,10 +6,10 @@
 <title>Request Tracker Board</title>
 <!--
   Task board for docs/PLAN.md. PLAN.md stays the single source of tasks, dependencies and estimates: this page loads
-  PLAN.md from its own folder and only stores local status changes in the browser. "Copy task board" produces the
-  updated table to paste back into PLAN.md.
-  Start it with `node docs/board-server.mjs` and open http://localhost:4300/. Browsers don't let a page opened from disk
-  read files next to it, so from disk it falls back to the "Open PLAN.md" button.
+  PLAN.md from its own folder, and status or actual-hours changes are saved straight into PLAN.md by the board server.
+  Start it with `node docs/board-server.mjs` from the main folder and open http://localhost:4300/. Browsers don't let a
+  page opened from disk read files next to it, so from disk it falls back to the "Open PLAN.md" button, keeps changes
+  in the browser, and "Copy task board" produces the updated table to paste back into PLAN.md.
 -->
 <style>
   :root {
@@ -429,13 +429,33 @@ function closeDrawer() {
 // CLAUDE.md tells sessions to read a task's requirements from PLAN.md, so the number is all a session needs.
 const sessionPrompt = t => `Implement task ${t.id}.`;
 
-function setOverride(id, change) {
+async function setOverride(id, change) {
   const next = { status: statusOf(id), actual: actualOf(id), ...change };
+  if (state.source === SAME_FOLDER && await saveToPlan(id, next)) return;
   const t = byId[id];
   if (next.status === t.status && next.actual === t.actual) delete state.overrides[id];
   else state.overrides[id] = next;
   saveState();
   render();
+}
+
+// Served by board-server.mjs, a change is written into PLAN.md. If that fails, the caller keeps it as a local change so
+// nothing typed is lost.
+async function saveToPlan(id, { status, actual }) {
+  try {
+    const response = await fetch(new URL(`tasks/${id}`, location.href), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status, actual }),
+    });
+    if (!response.ok) throw new Error(await response.text());
+    usePlan(await response.text(), SAME_FOLDER);
+    toast(`Saved task ${id} to PLAN.md`);
+    return true;
+  } catch (err) {
+    alert(`Couldn't save to PLAN.md (${err.message}). The change is kept in this browser; use "Copy task board".`);
+    return false;
+  }
 }
 
 // ---------- Export ----------
