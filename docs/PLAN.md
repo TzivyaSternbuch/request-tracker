@@ -241,9 +241,9 @@ the board stay local.
 | 02 | Database selection and schema design | US-0.1 | Planning | main | — | 2 | done | |
 | 03 | Work plan (this document) | US-0.1 | Planning | main | 01, 02 | 2 | in review | |
 | 21 | Repositories, submodules and pointer updates | US-1.3 | Foundation | main, server, client | 03 | 3 | done | |
-| 04 | Backend skeleton, cross-cutting concerns and local run setup | US-1.1 | Foundation | server | 21 | 5 | todo | |
-| 05 | Data model, EF configuration and initial migration | US-1.1 | Foundation | server | 04 | 3 | todo | |
-| 06 | Test data seeder (100,000 requests) | US-1.2 | Foundation | server | 05 | 3 | todo | |
+| 04 | Backend skeleton, cross-cutting concerns and local run setup | US-1.1 | Foundation | server | 21 | 5 | done | |
+| 05 | Data model, EF configuration and initial migration | US-1.1 | Foundation | server | 04 | 3 | done | |
+| 06 | Test data seeder (100,000 requests) | US-1.2 | Foundation | server | 05 | 3 | in progress | |
 | 07 | Angular app scaffold | US-1.1 | Foundation | client | 21 | 2 | done | |
 | 08 | List API: paging, filters, search, sort | US-2.1 | Slice | server | 05, 06 | 8 | todo | |
 | 09 | List UI: search, filters, sort, paging | US-2.1 | Slice | client | 07, 08 | 8 | todo | |
