@@ -105,7 +105,7 @@ docs/
   board.html       task board that reads and updates PLAN.md; serve it from the main folder: `node docs/board-server.mjs`
   plan/            per-task implementation plans (e.g. from superpowers:writing-plans), <task-id>-<short-name>.md
   PERFORMANCE.md   query plans, indexes, bottlenecks (exam section 6)
-  AI_USAGE.md      where AI was used and what was checked/changed manually (exam section 11)
+  AI_USAGE.md      where AI was used and what was checked/changed manually (exam section 11), written once in task 19
 README.md          run instructions, decisions, alternatives, limitations (exam section 11)
 ```
 
@@ -343,4 +343,3 @@ src/app/
   5. After the merge, wait for the update workflow to move the submodule pointer. Then, on the main repository's
      `main`, pull with submodules, build and run all tests (plus a UI smoke run after a frontend or API-contract change)
      before the next branch merges. A failure is fixed first, in a `fix/` branch.
-- After finishing a task, append a short entry to `docs/AI_USAGE.md`: what AI generated, what was verified or changed manually.
