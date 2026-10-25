@@ -30,7 +30,8 @@ task. Work that was left out on purpose is listed in [Out of scope](#out-of-scop
 - **Board:** `docs/board.html` shows this plan as a task board, with what's ready to start and a timeline. Run
   `node docs/board-server.mjs` from the main folder (on `main`, not a worktree) and open `http://localhost:4300/`. The
   board reads this file, so it never needs its own copy of the tasks, and a status or actual-hours change made on the
-  board is written straight into the [task board](#task-board) table here. Commit those changes like any other edit.
+  board is written straight into the [task board](#task-board) table here. Only `done` and actual hours are
+  committed; intermediate statuses (in progress, in review) are local working state and stay uncommitted.
 
 ## Repositories
 
@@ -81,7 +82,7 @@ The estimates are planning figures based on these assumptions:
 
 - One developer who knows .NET, Angular and SQL Server does the work, using AI assistance and reviewing all generated
   code manually.
-- An estimate is focused hours for one task, including its tests, review fixes and its `AI_USAGE.md` entry. It
+- An estimate is focused hours for one task, including its tests and review fixes. It
   excludes waiting time, such as waiting for a review.
 - The **Actual** column on the [task board](#task-board) records real effort as tasks merge, so the estimates can be
   checked and the remaining ones corrected.
@@ -201,9 +202,6 @@ The orders follow what other tasks wait for:
 - **Performance:** in phase 3, only task 17 may change the schema. The backend track doesn't touch the entity
   configurations or migrations.
 
-Every task appends its own entry to `docs/AI_USAGE.md`. The file only grows, so these merges don't conflict in a way
-that matters.
-
 ### Shared assumptions
 
 The tracks agree through the following rules, not through each other's branches:
@@ -233,8 +231,9 @@ the main repository's `main`, before the next branch merges:
 ## Task board
 
 The following table is the single place for task status, dependencies and estimates. "Depends on" lists real
-dependencies; track order is in [Ownership and merge order](#ownership-and-merge-order). Update the table when a task
-starts and when it is merged.
+dependencies; track order is in [Ownership and merge order](#ownership-and-merge-order). The committed table changes
+only when a task is merged: its status becomes `done` and its actual effort is recorded. Intermediate statuses set on
+the board stay local.
 
 | ID | Task | US | Track | Repo | Depends on | Est. (h) | Status | Actual (h) |
 |---|---|---|---|---|---|---|---|---|
@@ -245,7 +244,7 @@ starts and when it is merged.
 | 04 | Backend skeleton, cross-cutting concerns and local run setup | US-1.1 | Foundation | server | 21 | 5 | todo | |
 | 05 | Data model, EF configuration and initial migration | US-1.1 | Foundation | server | 04 | 3 | todo | |
 | 06 | Test data seeder (100,000 requests) | US-1.2 | Foundation | server | 05 | 3 | todo | |
-| 07 | Angular app scaffold | US-1.1 | Foundation | client | 21 | 2 | todo | |
+| 07 | Angular app scaffold | US-1.1 | Foundation | client | 21 | 2 | done | |
 | 08 | List API: paging, filters, search, sort | US-2.1 | Slice | server | 05, 06 | 8 | todo | |
 | 09 | List UI: search, filters, sort, paging | US-2.1 | Slice | client | 07, 08 | 8 | todo | |
 | 10 | Status update with optimistic concurrency and audit | US-3.1 | Backend | server | M1 | 7 | todo | |
@@ -363,7 +362,8 @@ because the API is the only part that needs the database.
     in the response; one DI extension per project; the time provider and the hybrid cache; the cache key constants;
     an OpenAPI document and a Swagger UI page in Development, for manual calls.
   - The local run setup: SQL Server 2022 in Docker with one command, the dev connection string, `dotnet-ef` as a local
-    tool, and a first "Run locally" section in the README.
+    tool, and a first "Run locally" section in the README. The API listens on `http://localhost:5100`, the target of
+    the client's dev proxy (`frontend/proxy.conf.json`).
 - **Deliverable:** The build and tests pass, including a test of the exception-to-status mapping. `docker compose up -d`
   starts SQL Server. The API starts, serves the OpenAPI document and Swagger UI, and returns errors as ProblemDetails.
 - **Guidance:** `CLAUDE.md` → Stack, Layer responsibilities, DI lifetimes, Error responses, Cache. Creates all shared
@@ -726,8 +726,8 @@ Exam: §9, §11 · Branch: none (documentation on `main`)
     instances;
   - two significant technical decisions with the alternatives considered;
   - one known limitation and one possible improvement;
-  - links to this plan and to `docs/AI_USAGE.md`, which this task consolidates.
-- **Deliverable:** The README and a consolidated `docs/AI_USAGE.md`.
+  - links to this plan and to `docs/AI_USAGE.md`, which this task writes for the whole project.
+- **Deliverable:** The README and `docs/AI_USAGE.md`.
 
 #### 20 Submission and clean-run verification
 
@@ -803,7 +803,7 @@ the evidence:
 | §11 | Cache and invalidation | 19 | README |
 | §11 | Two technical decisions with alternatives | 19 | README |
 | §11 | One known limitation and one improvement | 17, 19 | README |
-| §11 | AI usage: where, and what was checked or changed | every task, 19 | `docs/AI_USAGE.md` |
+| §11 | AI usage: where, and what was checked or changed | 19 | `docs/AI_USAGE.md` |
 | Submission | Reviewers can access, run and inspect everything; no ZIP files | 21, 20 | Main repository link with submodules, clean-run check |
 
 ## Definition of done
@@ -820,7 +820,7 @@ A code task is done when all of the following are true:
 5. API changes are reflected in `CLAUDE.md` → API contract, and every response code is declared, so the OpenAPI
    document and Swagger UI show the real contract.
 6. The PR title starts with the task ID or IDs, and the description lists the shared files the task touched.
-7. `docs/AI_USAGE.md` has an entry for the task, and the task's status and actual effort are updated in this plan.
+7. The task's status is set to `done` and its actual effort is recorded in this plan.
 8. After the merge and the submodule pointer update, the [integration check](#integration-check-after-each-merge) on
    the main repository passes.
 
@@ -853,4 +853,4 @@ The following risks can affect the schedule:
 | A reviewer clones without `--recurse-submodules` and gets empty `backend/` and `frontend/` folders. | The clone command is the first step in the README, and task 20 tests exactly that path. |
 | The notification token expires or a notification fails, so the main repository falls behind. | The scheduled run of the update workflow catches up; task 20 checks the pointers before submission. |
 | A session works in a submodule's detached `HEAD` and loses commits. | `CLAUDE.md` → Branches & commits: create the task branch inside the submodule from its latest `main` before any change. |
-| Recent framework versions (.NET 10, Angular 22) have less documentation. | Versions are pinned in the README; problems are recorded in `docs/AI_USAGE.md` and the PR. |
+| Recent framework versions (.NET 10, Angular 22) have less documentation. | Versions are pinned in the README; problems are recorded in the PR. |
