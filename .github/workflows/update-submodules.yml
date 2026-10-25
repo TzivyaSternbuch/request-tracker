@@ -22,8 +22,11 @@ jobs:
   update:
     runs-on: ubuntu-latest
     steps:
+      # The latest main, not the commit the event fired on: a run queued behind another must
+      # start from the pointer commit that run pushed, or its own push is rejected.
       - uses: actions/checkout@v7
         with:
+          ref: main
           submodules: true
 
       - name: Move pointers to the latest main
