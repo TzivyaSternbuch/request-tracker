@@ -187,6 +187,7 @@ repository write outcomes — are return values, not exceptions; don't use excep
 | `PATCH api/requests/status` — bulk, body `{ items: [{ id, version }], status, changedBy }`, 1–100 items, distinct ids, every item with a valid `id` and `version` | 200 with per-item results (see Concurrency); an invalid request as a whole (e.g. >100 items, a missing `version`) is 400 |
 | `GET api/requests/{id}/history` — query: `page`, `pageSize` (same rules as the list) | 200 `PagedResult<StatusHistoryDto>`, newest first; 404 if the request doesn't exist |
 | `GET api/requests/stats` | 200 `RequestStatsDto` (cached) |
+| `GET api/requests/assignees` | 200 `string[]`: distinct `AssignedTo` values, alphabetical (feeds the assignee filter; not paged — it is the set of assignees, tens of names) |
 
 New endpoints choose status codes by HTTP semantics (e.g. 201 + `Location` for creation, 204 when there is no
 meaningful body) and are added to this table.
