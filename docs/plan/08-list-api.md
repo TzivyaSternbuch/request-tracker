@@ -70,14 +70,22 @@ and must be merged before this PR merges. Tasks 1–3 run on an empty database.
   (developer's decision); a field may appear only once. This replaces the contract's `sortBy` / `sortDirection`.
 - Every order ends with `Id` (unless `id` is already a sort field), in the last field's direction, so equal values
   keep one order across pages and a single descending sort reads its index backward without a sort step (*my call*).
-  Sorts that start with an indexed field (`createdAt`, `status`, `priority`, `assignedTo`, `organizationName`, `id`)
-  can read the index in order; other combinations get a Sort step, still in SQL.
+- When the last sort field is `status`, `priority` or `assignedTo` and `createdAt` isn't a sort field, ties are
+  ordered by `createdAt` before `Id`, in the same direction (*my call*). Their indexes are `(Field, CreatedAt)`, so
+  `sort=status` then reads `IX_Requests_Status_CreatedAt` in order; ordering by `(Field, Id)` scanned the table and
+  sorted it (measured on the seeded data).
+- Single sorts on `createdAt`, `status`, `priority`, `assignedTo`, `organizationName` or `id` read their index in
+  order. `title`, `updatedAt`, mixed directions and most multi-field combinations get a Sort step, still in SQL.
 
 - Order filter → count → sort → page → project. This isn't only convention: the count must see the filters and not
   the paging, and `OFFSET … FETCH` needs an `ORDER BY`. Considered and rejected: `COUNT(*) OVER()` in one query (still
   counts the whole filtered set, and a page past the end returns no count) and keyset paging (the contract uses page
   numbers, and the paginator jumps to any page). The deep-page cost of `OFFSET` is a measurement point for task 17.
 - A page past the end returns 200 with empty `items` and the real `totalCount` (*my call*).
+- The count and the page are separate statements, so an update committed between them can make `totalCount` differ
+  from the rows (developer's decision: known limitation). A consistent read needs snapshot isolation, a database
+  setting and so a migration; it is left to task 17. Stricter isolation would block writers, and `COUNT(*) OVER()`
+  reads every filtered row.
 
 **How it is checked:**
 
