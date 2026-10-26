@@ -181,7 +181,7 @@ repository write outcomes — are return values, not exceptions; don't use excep
 
 | Endpoint | Success response |
 |---|---|
-| `GET api/requests` — query: `page` (1-based, default 1), `pageSize` (default 20, max 100), `status`, `priority`, `organizationName`, `assignedTo`, `createdFrom`, `createdTo`, `search` (Title + OrganizationName), `sortBy` (`createdAt`, `updatedAt`, `priority`, `title`), `sortDirection` (`asc`/`desc`, default `desc`) | 200 `PagedResult<RequestDto>` = `{ items, page, pageSize, totalCount }` |
+| `GET api/requests` — query: `page` (1-based, default 1), `pageSize` (default 20, max 100), `status`, `priority`, `assignedTo` (each repeatable: values of one filter combine with OR, filters with AND; `assignedTo` exact match), `organizationName` (prefix), `createdFrom`, `createdTo` (UTC dates, both included), `search` (Title + OrganizationName), `sort` (repeatable `field[:asc\|desc]`, applied in order, direction default `asc`; fields `id`, `title`, `organizationName`, `status`, `priority`, `assignedTo`, `createdAt`, `updatedAt`, each at most once; default `createdAt:desc`) | 200 `PagedResult<RequestDto>` = `{ items, page, pageSize, totalCount }` |
 | `GET api/requests/{id}` | 200 `RequestDto` |
 | `PATCH api/requests/{id}/status` — body `{ status, version, changedBy }` | 200 updated `RequestDto` (the client needs the new `version`) |
 | `PATCH api/requests/status` — bulk, body `{ items: [{ id, version }], status, changedBy }`, 1–100 items, distinct ids, every item with a valid `id` and `version` | 200 with per-item results (see Concurrency); an invalid request as a whole (e.g. >100 items, a missing `version`) is 400 |
