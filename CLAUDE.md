@@ -300,6 +300,27 @@ src/app/
 - Integration tests: real API via `WebApplicationFactory` + real DB via Testcontainers.
 - Required minimum: valid query/update, invalid input, concurrency conflict, one integration test.
 
+## Code review
+Applies to `/code-review` and any other review (findings in the session, PR comments). These rules override the review
+skill's default output format.
+
+- **Every finding has a severity**, judged by its impact in this project:
+
+  | Severity | Meaning | Examples |
+  |---|---|---|
+  | Critical | Breaks a mandatory constraint, loses or corrupts data, or fails a grading requirement. Blocks merge. | lost update possible, status change without its audit row, client-side filtering/paging, unbounded page size, DB entity returned from the API |
+  | High | Wrong behavior in a realistic scenario. Fix before merge. | wrong error status (e.g. 500 instead of 409), cache not invalidated after a write, `CancellationToken` not passed to I/O, sensitive data logged |
+  | Medium | Wrong in an edge case, or a convention violation that hurts maintainability. Fix in this PR unless explained. | blank filter treated as a filter, missing tiebreaker in a sort, missing required test, logic in the wrong layer |
+  | Low | Readability, naming, style, simplification. Optional. | naming, redundant code, comment wording |
+
+- **Every finding has a number.** Sort by severity (Critical first), then number from 1 across the whole review, so
+  the user can answer per finding ("fix 1–3, skip 4"). Keep the numbers stable when re-reporting after fixes — don't
+  renumber.
+- Format: `<n>. [<Severity>] <one-line summary>` with the `file:line` link and the failure scenario under it. With the
+  `ReportFindings` tool, put the same `<n>. [<Severity>]` prefix at the start of `short_summary` and `summary`, in the
+  same order. PR comments start with `<n> · <Severity>:`.
+- End with a one-line count per severity (e.g. `1 Critical · 2 High · 0 Medium · 3 Low`).
+
 ## Branches & commits
 - **No direct commits of code to `main`**, in any repository. Code reaches `main` only through a PR from a task branch.
   Exceptions, in the main repository only: documentation-only changes (`CLAUDE.md`, `docs/`, `README.md`) made by the
