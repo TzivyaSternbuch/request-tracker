@@ -21,7 +21,7 @@ task. Work that was left out on purpose is listed in [Out of scope](#out-of-scop
   **Repo** column on the task board). Small, closely related tasks may share a branch and PR when together they form
   one coherent, reviewable change, for example 05 + 06 or 19 + 20. Documentation-only tasks (01, 02, 03, 19) are
   committed to `main` of the main repository directly, as `CLAUDE.md` allows.
-- **Implementation plans:** Only tasks of 5 hours or more get a plan file in `docs/plan/<id>-<short-name>.md`: 04, 08,
+- **Implementation plans:** Only tasks of 2.5 hours or more get a plan file in `docs/plan/<id>-<short-name>.md`: 04, 08,
   09, 10, 14 and 17. Other tasks are described in their PR.
 - **Exam references:** `§1`–`§11` are the numbered sections of the exam. **Data** is the request-structure and test-data
   section; **Submission** is the submission section.
@@ -64,17 +64,17 @@ The following table lists every feature, its user stories and the exam sections 
 
 | Feature | User stories | Exam | Tasks | Effort (h) |
 |---|---|---|---|---|
-| F0 Planning and design | US-0.1 Plan traced to the spec | §9, §10, §11 | 01, 02, 03 | 7 |
-| F1 Foundation and test data | US-1.1 Runnable foundation · US-1.2 Realistic test data · US-1.3 Connected repositories | Data, §10, §11, Submission | 21, 04, 05, 06, 07 | 16 |
-| F2 Find requests | US-2.1 Search, filter, sort and page | §1, §5 | 08, 09 | 16 |
-| F3 Status update and concurrency | US-3.1 Change status safely | §2, §3, §5 | 10, 14 | 13 |
-| F4 Change history | US-4.1 See change history | §3, §5 | 12, 15 | 6 |
-| F5 Bulk status update | US-5.1 Update many requests at once · US-5.2 Update many requests from the list | §4, §5 | 11, 22 | 9 |
-| F6 Statistics and cache | US-6.1 See workload statistics | §1, §5, §7 | 13, 16 | 6 |
-| F7 Performance | US-7.1 Performance evidence | §1, §6 | 17 | 6 |
-| F8 Tests and code quality | US-8.1 Automated tests | §8, §10 | 18 (plus tests in every task) | 3 |
-| F9 Documentation and submission | US-9.1 Understand and run the solution | §11, Submission | 19, 20 | 6 |
-| **Total** | | | | **88** |
+| F0 Planning and design | US-0.1 Plan traced to the spec | §9, §10, §11 | 01, 02, 03 | 3.5 |
+| F1 Foundation and test data | US-1.1 Runnable foundation · US-1.2 Realistic test data · US-1.3 Connected repositories | Data, §10, §11, Submission | 21, 04, 05, 06, 07 | 8 |
+| F2 Find requests | US-2.1 Search, filter, sort and page | §1, §5 | 08, 09 | 8 |
+| F3 Status update and concurrency | US-3.1 Change status safely | §2, §3, §5 | 10, 14 | 6.5 |
+| F4 Change history | US-4.1 See change history | §3, §5 | 12, 15 | 3 |
+| F5 Bulk status update | US-5.1 Update many requests at once · US-5.2 Update many requests from the list | §4, §5 | 11, 22 | 4.5 |
+| F6 Statistics and cache | US-6.1 See workload statistics | §1, §5, §7 | 13, 16 | 3 |
+| F7 Performance | US-7.1 Performance evidence | §1, §6 | 17 | 3 |
+| F8 Tests and code quality | US-8.1 Automated tests | §8, §10 | 18 (plus tests in every task) | 1.5 |
+| F9 Documentation and submission | US-9.1 Understand and run the solution | §11, Submission | 19, 20 | 3 |
+| **Total** | | | | **44** |
 
 ## Effort estimates
 
@@ -91,15 +91,15 @@ Total work effort and elapsed time are different measures:
 
 | Measure | Hours | Meaning |
 |---|---|---|
-| Total work effort | 88 | Sum of all task estimates, 01–22. Planning (01–03, 7 h) is done or in review. |
-| Total with contingency | ≈ 101 | Plus 15% for integration problems and review rework. |
-| Remaining work | 81 | Tasks 04–22. |
-| Elapsed time, one task at a time | ≈ 81 (≈ 93 with contingency) | Tasks 04–22 run in sequence, one session. |
-| Elapsed time, parallel tracks | ≈ 62 | The critical path from the start of task 21, with up to three sessions at once (see [Critical path](#critical-path)). |
+| Total work effort | 44 | Sum of all task estimates, 01–22. Planning (01–03, 3.5 h) is done or in review. |
+| Total with contingency | ≈ 51 | Plus 15% for integration problems and review rework. |
+| Remaining work | 40.5 | Tasks 04–22. |
+| Elapsed time, one task at a time | ≈ 40.5 (≈ 47 with contingency) | Tasks 04–22 run in sequence, one session. |
+| Elapsed time, parallel tracks | ≈ 31 | The critical path from the start of task 21, with up to three sessions at once (see [Critical path](#critical-path)). |
 
-The 62 hours aren't the project duration. They exclude planning (01–03) and assume no waiting between tasks. Parallel
+The 31 hours aren't the project duration. They exclude planning (01–03) and assume no waiting between tasks. Parallel
 sessions shorten implementation, not review: the developer still reviews every PR. So the real elapsed time for tasks
-04–22 falls between about 62 and 93 hours.
+04–22 falls between about 31 and 47 hours.
 
 ## Execution order and dependencies
 
@@ -170,11 +170,11 @@ flowchart LR
 
 The longest chain of dependent tasks, starting after planning, is:
 
-21 (3) → 04 (5) → 05 (3) → 06 (3) → 08 (8) → 09 (8) → M1 → 10 (7) → 13 (4) → 12 (3) → 11 (4) → 22 (5) → 18 (3) → 19 (4) →
-20 (2) = **62 h**
+21 (1.5) → 04 (2.5) → 05 (1.5) → 06 (1.5) → 08 (4) → 09 (4) → M1 → 10 (3.5) → 13 (2) → 12 (1.5) → 11 (2) → 22 (2.5) → 18 (1.5) → 19 (2) →
+20 (1) = **31 h**
 
 Task 22 waits for task 11, the last backend task, so the backend track is critical up to there. The rest of the
-frontend track (14 → 16 → 15, 11 hours after M1) finishes earlier and has slack. Task 17 runs from the end of task 13
+frontend track (14 → 16 → 15, 5.5 hours after M1) finishes earlier and has slack. Task 17 runs from the end of task 13
 and has slack too. A delay in 11 or 22 delays task 18.
 
 ## Coordinating parallel work
@@ -240,28 +240,28 @@ the board stay local.
 
 | ID | Task | US | Track | Repo | Depends on | Est. (h) | Status | Actual (h) |
 |---|---|---|---|---|---|---|---|---|
-| 01 | Requirements analysis and architecture conventions | US-0.1 | Planning | main | — | 3 | done | |
-| 02 | Database selection and schema design | US-0.1 | Planning | main | — | 2 | done | |
-| 03 | Work plan (this document) | US-0.1 | Planning | main | 01, 02 | 2 | in review | |
-| 21 | Repositories, submodules and pointer updates | US-1.3 | Foundation | main, server, client | 03 | 3 | done | |
-| 04 | Backend skeleton, cross-cutting concerns and local run setup | US-1.1 | Foundation | server | 21 | 5 | done | |
-| 05 | Data model, EF configuration and initial migration | US-1.1 | Foundation | server | 04 | 3 | done | |
-| 06 | Test data seeder (100,000 requests) | US-1.2 | Foundation | server | 05 | 3 | in progress | |
-| 07 | Angular app scaffold | US-1.1 | Foundation | client | 21 | 2 | done | |
-| 08 | List API: paging, filters, search, sort | US-2.1 | Slice | server | 05, 06 | 8 | todo | |
-| 09 | List UI: search, filters, sort, paging | US-2.1 | Slice | client | 07, 08 | 8 | todo | |
-| 10 | Status update with optimistic concurrency and audit | US-3.1 | Backend | server | M1 | 7 | todo | |
-| 11 | Bulk status update (Partial Success) | US-5.1 | Backend | server | 10 | 4 | todo | |
-| 12 | Status history API | US-4.1 | Backend | server | 10 | 3 | todo | |
-| 13 | Statistics aggregations and cache | US-6.1 | Backend | server | 10 | 4 | todo | |
-| 14 | Request details and status update UI | US-3.1 | Frontend | client | 10 | 6 | todo | |
-| 15 | History UI | US-4.1 | Frontend | client | 12, 14 | 3 | todo | |
-| 16 | Statistics UI | US-6.1 | Frontend | client | 13 | 2 | todo | |
-| 17 | Performance analysis and index validation | US-7.1 | Performance | server, main | 13 | 6 | todo | |
-| 18 | Test coverage and quality gate | US-8.1 | Delivery | server, client | 22, 15, 16, 17 | 3 | todo | |
-| 19 | README and solution documentation | US-9.1 | Delivery | main | 17, 18 | 4 | todo | |
-| 20 | Submission and clean-run verification | US-9.1 | Delivery | main | 19 | 2 | todo | |
-| 22 | Bulk status update UI | US-5.2 | Frontend | client | 11, 14 | 5 | todo | |
+| 01 | Requirements analysis and architecture conventions | US-0.1 | Planning | main | — | 1.5 | done | |
+| 02 | Database selection and schema design | US-0.1 | Planning | main | — | 1 | done | |
+| 03 | Work plan (this document) | US-0.1 | Planning | main | 01, 02 | 1 | done | |
+| 21 | Repositories, submodules and pointer updates | US-1.3 | Foundation | main, server, client | 03 | 1.5 | done | |
+| 04 | Backend skeleton, cross-cutting concerns and local run setup | US-1.1 | Foundation | server | 21 | 2.5 | done | |
+| 05 | Data model, EF configuration and initial migration | US-1.1 | Foundation | server | 04 | 1.5 | done | |
+| 06 | Test data seeder (100,000 requests) | US-1.2 | Foundation | server | 05 | 1.5 | done | |
+| 07 | Angular app scaffold | US-1.1 | Foundation | client | 21 | 1 | done | |
+| 08 | List API: paging, filters, search, sort | US-2.1 | Slice | server | 05, 06 | 4 | done | |
+| 09 | List UI: search, filters, sort, paging | US-2.1 | Slice | client | 07, 08 | 4 | done | |
+| 10 | Status update with optimistic concurrency and audit | US-3.1 | Backend | server | M1 | 3.5 | done | |
+| 11 | Bulk status update (Partial Success) | US-5.1 | Backend | server | 10 | 2 | done | |
+| 12 | Status history API | US-4.1 | Backend | server | 10 | 1.5 | done | |
+| 13 | Statistics aggregations and cache | US-6.1 | Backend | server | 10 | 2 | done | |
+| 14 | Request details and status update UI | US-3.1 | Frontend | client | 10 | 3 | done | |
+| 15 | History UI | US-4.1 | Frontend | client | 12, 14 | 1.5 | done | |
+| 16 | Statistics UI | US-6.1 | Frontend | client | 13 | 1 | done | |
+| 17 | Performance analysis and index validation | US-7.1 | Performance | server, main | 13 | 3 | done | |
+| 18 | Test coverage and quality gate | US-8.1 | Delivery | server, client | 22, 15, 16, 17 | 1.5 | done | |
+| 19 | README and solution documentation | US-9.1 | Delivery | main | 17, 18 | 2 | done | |
+| 20 | Submission and clean-run verification | US-9.1 | Delivery | main | 19 | 1 | done | |
+| 22 | Bulk status update UI | US-5.2 | Frontend | client | 11, 14 | 2.5 | done | |
 
 Task 13 depends on task 10 because its cache test checks that a status update invalidates the statistics.
 
