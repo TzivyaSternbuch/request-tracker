@@ -284,6 +284,8 @@ src/app/
 
 ### Rules
 - Standalone components, `ChangeDetectionStrategy.OnPush`, built-in control flow (`@if`, `@for`), `inject()`.
+- Inline `template` and `styles` while they are short. Once a template no longer fits on a screen (about 60 lines),
+  move it and its styles to `<name>.component.html` / `<name>.component.scss` next to the component.
 - Signal APIs: `input()`, `output()`, `computed()`. No `any`. Strict TypeScript.
 - Components don't inject `HttpClient`. API services return `Observable`s and hold no state.
 - Feature state lives in a store service using signals, provided at the feature route/component level.
