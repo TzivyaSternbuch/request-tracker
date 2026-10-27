@@ -6,6 +6,18 @@
       "runtimeExecutable": "node",
       "runtimeArgs": ["docs/board-server.mjs"],
       "port": 4300
+    },
+    {
+      "name": "api",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "backend/src/RequestTracker.Api"],
+      "port": 5100
+    },
+    {
+      "name": "client",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "frontend", "start"],
+      "port": 4200
     }
   ]
 }
