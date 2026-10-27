@@ -69,12 +69,12 @@ The following table lists every feature, its user stories and the exam sections 
 | F2 Find requests | US-2.1 Search, filter, sort and page | §1, §5 | 08, 09 | 16 |
 | F3 Status update and concurrency | US-3.1 Change status safely | §2, §3, §5 | 10, 14 | 13 |
 | F4 Change history | US-4.1 See change history | §3, §5 | 12, 15 | 6 |
-| F5 Bulk status update | US-5.1 Update many requests at once | §4 | 11 | 4 |
+| F5 Bulk status update | US-5.1 Update many requests at once · US-5.2 Update many requests from the list | §4, §5 | 11, 22 | 9 |
 | F6 Statistics and cache | US-6.1 See workload statistics | §1, §5, §7 | 13, 16 | 6 |
 | F7 Performance | US-7.1 Performance evidence | §1, §6 | 17 | 6 |
 | F8 Tests and code quality | US-8.1 Automated tests | §8, §10 | 18 (plus tests in every task) | 3 |
 | F9 Documentation and submission | US-9.1 Understand and run the solution | §11, Submission | 19, 20 | 6 |
-| **Total** | | | | **83** |
+| **Total** | | | | **88** |
 
 ## Effort estimates
 
@@ -91,15 +91,15 @@ Total work effort and elapsed time are different measures:
 
 | Measure | Hours | Meaning |
 |---|---|---|
-| Total work effort | 83 | Sum of all task estimates, 01–21. Planning (01–03, 7 h) is done or in review. |
-| Total with contingency | ≈ 95 | Plus 15% for integration problems and review rework. |
-| Remaining work | 76 | Tasks 04–21. |
-| Elapsed time, one task at a time | ≈ 76 (≈ 87 with contingency) | Tasks 04–21 run in sequence, one session. |
-| Elapsed time, parallel tracks | ≈ 57 | The critical path from the start of task 21, with up to three sessions at once (see [Critical path](#critical-path)). |
+| Total work effort | 88 | Sum of all task estimates, 01–22. Planning (01–03, 7 h) is done or in review. |
+| Total with contingency | ≈ 101 | Plus 15% for integration problems and review rework. |
+| Remaining work | 81 | Tasks 04–22. |
+| Elapsed time, one task at a time | ≈ 81 (≈ 93 with contingency) | Tasks 04–22 run in sequence, one session. |
+| Elapsed time, parallel tracks | ≈ 62 | The critical path from the start of task 21, with up to three sessions at once (see [Critical path](#critical-path)). |
 
-The 57 hours aren't the project duration. They exclude planning (01–03) and assume no waiting between tasks. Parallel
+The 62 hours aren't the project duration. They exclude planning (01–03) and assume no waiting between tasks. Parallel
 sessions shorten implementation, not review: the developer still reviews every PR. So the real elapsed time for tasks
-04–21 falls between about 57 and 87 hours.
+04–22 falls between about 62 and 93 hours.
 
 ## Execution order and dependencies
 
@@ -112,7 +112,7 @@ Work runs in five phases. Each phase starts when the tasks it depends on are mer
 | 0. Planning and design | 01, 02, 03 | Sequential, documentation only. |
 | 1. Foundation | 21, then 04 → 05 → 06, and 07 in parallel | Task 21 creates the repositories first. Then sequential on the backend, because these tasks create the shared files (`Program.cs`, DB context, DI extensions, migrations). Task 07 is frontend-only, works in the client repository and sets no code patterns, so it runs in parallel. |
 | 2. First vertical slice | 08 → 09, then milestone **M1** | One user story (US-2.1) in two sequential tasks, API then UI, so each PR stays reviewable. The seeder (06) runs first, so the slice is tested against 100,000 rows from the start. |
-| 3. Features | Backend track 10 → 13 → 12 → 11; frontend track 14 → 16 → 15; task 17 | Two writer tracks and a performance task in parallel (see [Coordinating parallel work](#coordinating-parallel-work)). |
+| 3. Features | Backend track 10 → 13 → 12 → 11; frontend track 14 → 16 → 15 → 22; task 17 | Two writer tracks and a performance task in parallel (see [Coordinating parallel work](#coordinating-parallel-work)). |
 | 4. Hardening and delivery | 18 → 19 → 20 | Sequential, after all features and task 17. |
 
 The milestones mark the points where the next phase can start:
@@ -149,16 +149,19 @@ flowchart LR
   subgraph frontend [Frontend track]
     T14[14 Details + status UI] -.-> T16[16 Stats UI]
     T16 -.-> T15[15 History UI]
+    T15 -.-> T22[22 Bulk update UI]
   end
   M1 --> T10
   T10 --> T12
   T10 --> T11
+  T11 --> T22
+  T14 --> T22
   T10 --> T14
   T13 --> T16
   T12 --> T15
   T14 --> T15
   T13 --> T17[17 Performance]
-  T11 & T15 & T16 & T17 --> T18[18 Quality gate]
+  T22 & T15 & T16 & T17 --> T18[18 Quality gate]
   T18 --> T19[19 README]
   T19 --> T20[20 Submission]
 ```
@@ -167,12 +170,12 @@ flowchart LR
 
 The longest chain of dependent tasks, starting after planning, is:
 
-21 (3) → 04 (5) → 05 (3) → 06 (3) → 08 (8) → 09 (8) → M1 → 10 (7) → 13 (4) → 12 (3) → 11 (4) → 18 (3) → 19 (4) →
-20 (2) = **57 h**
+21 (3) → 04 (5) → 05 (3) → 06 (3) → 08 (8) → 09 (8) → M1 → 10 (7) → 13 (4) → 12 (3) → 11 (4) → 22 (5) → 18 (3) → 19 (4) →
+20 (2) = **62 h**
 
-The frontend track (10 → 14 → 16 → 15, also 18 hours after M1) is just as long, so both tracks are critical. Task 17
-runs from the end of task 13 to about the same point, so it has almost no slack either. A delay in any of the three
-delays task 18.
+Task 22 waits for task 11, the last backend task, so the backend track is critical up to there. The rest of the
+frontend track (14 → 16 → 15, 11 hours after M1) finishes earlier and has slack. Task 17 runs from the end of task 13
+and has slack too. A delay in 11 or 22 delays task 18.
 
 ## Coordinating parallel work
 
@@ -189,7 +192,7 @@ sessions never edit the same file at once:
 | Track | Tasks, in merge order | Owns |
 |---|---|---|
 | Backend | 10 → 13 → 12 → 11 | `request-tracker-server`, and the API contract table in `CLAUDE.md` |
-| Frontend | 14 → 16 → 15 | `request-tracker-client` |
+| Frontend | 14 → 16 → 15 → 22 | `request-tracker-client` |
 | Performance | 17 | `docs/PERFORMANCE.md`; in the server repository, the entity configurations and a new migration, only if an index changes |
 | Coordinating session | M1, documentation tasks | The main repository, except the API contract table |
 
@@ -198,7 +201,7 @@ The orders follow what other tasks wait for:
 - **Backend:** 10 comes first because every other feature needs it. 13 comes next because tasks 16 and 17 wait for it.
   12 follows because task 15 needs it. 11 is last because no other task depends on it.
 - **Frontend:** 14 needs only task 10. 16 comes before 15 because the statistics API (13) merges before the history API
-  (12).
+  (12). 22 is last because it needs the bulk API (11), the last backend task to merge.
 - **Performance:** in phase 3, only task 17 may change the schema. The backend track doesn't touch the entity
   configurations or migrations.
 
@@ -255,9 +258,10 @@ the board stay local.
 | 15 | History UI | US-4.1 | Frontend | client | 12, 14 | 3 | todo | |
 | 16 | Statistics UI | US-6.1 | Frontend | client | 13 | 2 | todo | |
 | 17 | Performance analysis and index validation | US-7.1 | Performance | server, main | 13 | 6 | todo | |
-| 18 | Test coverage and quality gate | US-8.1 | Delivery | server, client | 11, 15, 16, 17 | 3 | todo | |
+| 18 | Test coverage and quality gate | US-8.1 | Delivery | server, client | 22, 15, 16, 17 | 3 | todo | |
 | 19 | README and solution documentation | US-9.1 | Delivery | main | 17, 18 | 4 | todo | |
 | 20 | Submission and clean-run verification | US-9.1 | Delivery | main | 19 | 2 | todo | |
+| 22 | Bulk status update UI | US-5.2 | Frontend | client | 11, 14 | 5 | todo | |
 
 Task 13 depends on task 10 because its cache test checks that a status update invalidates the statistics.
 
@@ -612,7 +616,33 @@ Exam: §3, §4, §7 · Branch: `feature/11-bulk-status`
   - integration test: a batch with one valid, one missing and one stale-version item returns 200 with the right
     per-item results, and only the valid item has an audit row.
 - **Guidance:** `CLAUDE.md` → Concurrency & audit (Partial Success). Reuses task 10's conditional update for each item.
-  There's no UI for this (see [Out of scope](#out-of-scope)).
+  The UI is task 22.
+
+**US-5.2 Update many requests from the list.** As a team lead, I want to select requests in the list and change their
+status in one action, and see which ones succeeded and which failed, so that I can move work in batches without
+calling the API by hand.
+
+Acceptance criteria:
+
+- Rows in the list can be selected, up to 100 at a time.
+- One action applies a chosen status to the selection, using the "acting as" name as `changedBy`.
+- The result lists the failed requests with their reason (`NotFound`, `Conflict`, `InvalidTransition`) in plain
+  words. The list reloads from the server afterwards, so succeeded rows show their new status. Conflicts are not
+  retried automatically.
+- A 400 for the whole call shows the server's message. The UI doesn't repeat the transition matrix.
+
+#### 22 Bulk status update UI
+
+Exam: §5 · Branch: `feature/22-bulk-status-ui`
+
+- **Required:**
+  - Row selection in the list, a bulk action with a status choice, and a result summary with loading and error states.
+  - The `version` of each selected row comes from the list data. The 100-row limit is enforced and explained to the user.
+  - After the call, the list reloads from the server (no client-side patching of rows).
+- **Deliverable:** A manual check with two browser tabs: a row changed in the second tab is reported as `Conflict`
+  while the other selected rows succeed.
+- **Guidance:** `CLAUDE.md` → Frontend conventions. Shares the list component and store with tasks 09 and 14, so it
+  runs last in the frontend track.
 
 ### F6 Statistics and cache
 
@@ -848,7 +878,6 @@ The following items are left out on purpose, to avoid over-engineering. Each one
 |---|---|
 | Authentication and authorization | The spec doesn't ask for them. `changedBy` comes from the client's "acting as" name. Listed in the README as a known limitation. |
 | Creating, editing or deleting requests | The spec covers finding, viewing, status updates and statistics. Data comes from the seeder. |
-| Bulk update UI | §5 doesn't require it. The endpoint is covered by tests and can be called from Swagger UI. |
 | Full-Text Search | Not included in the default SQL Server Docker image. It is the documented improvement for the search bottleneck. |
 | Distributed cache and several server instances | §7 asks for a description. The solution runs as one instance; the README explains what changes for several. |
 | Containers for the API and UI | Docker runs only SQL Server. The API and UI start with `dotnet run` and `npm start`, which keeps the run steps short. |
