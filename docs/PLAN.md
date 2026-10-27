@@ -614,35 +614,48 @@ Exam: §3, §4, §7 · Branch: `feature/11-bulk-status`
 
 ### F6 Statistics and cache
 
-**US-6.1 See workload statistics.** As a team lead, I want to see how many requests are in each status and priority, so
-that I can follow the team's workload.
+**US-6.1 See workload statistics.** As a team lead, I want to see how many requests are in each status, how long open
+requests have been waiting, and who carries the most open work, so that I can follow the team's workload.
 
 Acceptance criteria:
 
-- At least two aggregations (count by status, count by priority) are computed in the database.
-- The result is cached with a 5-minute expiration and invalidated by every successful status change, single or bulk.
-- The UI shows the statistics with loading and error states.
+- Three aggregations are computed in the database:
+  - the count of requests by status, with every status present (zero when empty), including Completed;
+  - the age of open requests (any status other than Completed) in three buckets: less than 7 days, 7 to less than 30
+    days, and 30 days or more, measured from `CreatedAt`, not from the time in the current status;
+  - the top five assignees by number of open requests, excluding unassigned requests and assignees with no open
+    requests, with ties broken by name.
+- The statistics are global: they don't change with the list's filters, search or page. The UI labels them
+  "All requests overview."
+- The result is cached for 5 minutes and invalidated after every successful status change, single or bulk, once the
+  change is committed.
+- The UI shows the statistics with loading, empty and error (with retry) states.
 
 #### 13 Statistics aggregations and cache
 
 Exam: §1, §7 · Branch: `feature/13-stats-cache`
 
-- **Required:** `GET api/requests/stats` with the total, the count by status and the count by priority, computed in the
-  database. The result is cached for 5 minutes under the statistics tag that tasks 10 and 11 invalidate. The statistics
-  are global, not per filter: that means one cache entry, which is cheap to invalidate. Filtered aggregations would
-  need one entry per filter combination.
+- **Required:** `GET api/requests/stats` returns `asOf`, `countByStatus`, `openRequestAge` and `topAssignees`, all
+  computed in the database. The result is cached for 5 minutes under the statistics tag that tasks 10 and 11
+  invalidate. The statistics are global, not per filter, so there is one cache entry, which is cheap to invalidate.
+  Filtered aggregations would need one entry per filter combination.
 - **Deliverable:** The endpoint, with every response code declared, and these tests:
-  - a unit test that a repeated call is served from the cache;
-  - integration tests: the counts are correct for known test data, and they change right after a status update.
+  - unit: a repeated call is served from the cache, and the entry is stored with a 5-minute expiration and the
+    statistics tag;
+  - integration: counts by status include zero groups and Completed; the 7-day and 30-day boundaries are exact;
+    Completed requests are excluded from age and workload; the top five are selected deterministically, with ties
+    broken by name; a status update invalidates the cached result.
+- **Note:** Bulk updates invalidate the same tag in task 11.
 - **Guidance:** `CLAUDE.md` → Cache.
 
 #### 16 Statistics UI
 
 Exam: §5 · Branch: `feature/16-stats-ui`
 
-- **Required:** The statistics (counts by status and by priority) shown with the list, with loading and error states,
-  and loaded again when the user returns to the list.
-- **Deliverable:** The numbers match the API and change after a status update.
+- **Required:** An "All requests overview" section above the list shows the counts by status, the three open-age
+  buckets and the top five assignees, with loading, empty ("No requests yet") and error (with retry) states. It loads
+  each time the list page opens. The store exposes `refresh()`, which task 14 calls after a successful status update.
+- **Deliverable:** The numbers match the API, and they change after a status update.
 - **Guidance:** `CLAUDE.md` → Frontend conventions.
 
 ### F7 Performance
