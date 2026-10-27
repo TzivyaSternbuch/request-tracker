@@ -551,7 +551,8 @@ understand how it got to its current state.
 
 Acceptance criteria:
 
-- The history endpoint returns changes newest first, in pages, with the total count. An unknown request returns 404.
+- The history endpoint returns changes newest first, in pages, with the total count.
+  An unknown request returns an empty page.
 - The details view shows the history with loading, empty and error states, and refreshes it after the user's own
   update.
 - When a request has more changes than are shown, the UI says so and can load the older ones. It never presents part
