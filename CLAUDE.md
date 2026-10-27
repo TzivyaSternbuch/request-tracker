@@ -184,7 +184,7 @@ repository write outcomes — are return values, not exceptions; don't use excep
 | `GET api/requests` — query: `page` (1-based, default 1), `pageSize` (default 20, max 100), `status`, `priority`, `assignedTo` (each repeatable: values of one filter combine with OR, filters with AND; `assignedTo` exact match), `organizationName` (prefix), `createdFrom`, `createdTo` (UTC dates, both included), `search` (Title + OrganizationName), `sort` (repeatable `field[:asc\|desc]`, applied in order, direction default `asc`; fields `id`, `title`, `organizationName`, `status`, `priority`, `assignedTo`, `createdAt`, `updatedAt`, each at most once; default `createdAt:desc`; blank values ignored; ties end with `Id` in the last field's direction, and a sort whose last field is `status`, `priority` or `assignedTo` without a `createdAt` key orders ties by `createdAt` first, so it reads its `(field, CreatedAt)` index) | 200 `PagedResult<RequestDto>` = `{ items, page, pageSize, totalCount }` |
 | `GET api/requests/{id}` | 200 `RequestDto` |
 | `PATCH api/requests/{id}/status` — body `{ status, version, changedBy }` | 200 updated `RequestDto` (the client needs the new `version`) |
-| `PATCH api/requests/status` — bulk, body `{ items: [{ id, version }], status, changedBy }`, 1–100 items, distinct ids, every item with a valid `id` and `version` | 200 with per-item results (see Concurrency); an invalid request as a whole (e.g. >100 items, a missing `version`) is 400 |
+| `PATCH api/requests/bulk-status` — bulk, body `{ items: [{ id, version }], status, changedBy }`, 1–100 items, distinct ids, every item with a valid `id` and `version` | 200 with per-item results (see Concurrency); an invalid request as a whole (e.g. >100 items, a missing `version`) is 400 |
 | `GET api/requests/{id}/history` — query: `page`, `pageSize` (default 10, max 100; otherwise the list's rules) | 200 `PagedResult<StatusHistoryDto>`, newest first; an unknown request id returns an empty page, not 404 |
 | `GET api/requests/stats` | 200 `RequestStatsDto` (cached): `asOf`, `countByStatus` (every status, zeros included), `openRequestAge` (`underSevenDays`, `sevenToUnderThirtyDays`, `thirtyDaysOrMore`, from `CreatedAt`, open requests only), `topAssignees` (`assignedTo`, `openCount`; at most five, unassigned and no-open excluded, ties by name). Global, not filtered. |
 | `GET api/requests/assignees` | 200 `string[]`: distinct `AssignedTo` values, alphabetical (feeds the assignee filter; not paged — it is the set of assignees, tens of names) |
@@ -199,6 +199,12 @@ meaningful body) and are added to this table.
   transaction; the response lists
   `{ succeeded: [ids], failed: [{ id, reason: "NotFound" | "Conflict" | "InvalidTransition" }] }`.
   (A change to this decision is made here first.)
+- Bulk update known behavior: the rows are read once up front, then each item goes through the same status-change
+  path as the single update. If an item's write throws after earlier items committed (SQL error, deadlock,
+  disconnect), the call fails with 500 and no `succeeded` list; committed items stay committed, the stats cache is
+  still invalidated (in a `finally`), and a retry with the old versions reports them as `Conflict`. There is no
+  per-item error reason: the contract has three. The cache removal is in-memory; if it ever threw while another error
+  propagated it would hide that error, as it would in the single update.
 
 ### Cache
 - `HybridCache` directly, with no extra abstraction. Keys and tags are constants in `Core/Caching/CacheKeys.cs`.
