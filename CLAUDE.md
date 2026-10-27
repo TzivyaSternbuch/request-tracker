@@ -235,10 +235,12 @@ set; weaker EF Core support): native `rowversion`, plain transactions for audit,
 1. `Where(r => r.Id == id && r.Version == expectedVersion).ExecuteUpdateAsync(...)` sets `Status` and `UpdatedAt`;
    `Version` changes in the same statement.
 2. 0 rows affected → `AnyAsync` on `Id` decides `NotFound` vs `Conflict`; nothing is written.
-3. 1 row affected → insert the `RequestStatusHistory` row, commit, return `Updated`.
+3. 1 row affected → insert the `RequestStatusHistory` row, read the row back as a DTO, commit, return `Updated` with
+   the DTO.
 
-The service re-reads the DTO to return the new `version`. Bulk calls the same method per item, one transaction per item
-(Partial Success).
+The read-back runs before the commit, while the row is still locked, so the response carries exactly the `version` this
+update produced; a re-read after the commit could return another user's later change. Bulk calls the same method per
+item, one transaction per item (Partial Success).
 
 ### Migrations
 - EF Core migrations live in Infrastructure; the startup project is Api.
