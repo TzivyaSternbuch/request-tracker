@@ -199,6 +199,12 @@ meaningful body) and are added to this table.
   transaction; the response lists
   `{ succeeded: [ids], failed: [{ id, reason: "NotFound" | "Conflict" | "InvalidTransition" }] }`.
   (A change to this decision is made here first.)
+- Bulk update known behavior: the rows are read once up front, then each item goes through the same status-change
+  path as the single update. If an item's write throws after earlier items committed (SQL error, deadlock,
+  disconnect), the call fails with 500 and no `succeeded` list; committed items stay committed, the stats cache is
+  still invalidated (in a `finally`), and a retry with the old versions reports them as `Conflict`. There is no
+  per-item error reason: the contract has three. The cache removal is in-memory; if it ever threw while another error
+  propagated it would hide that error, as it would in the single update.
 
 ### Cache
 - `HybridCache` directly, with no extra abstraction. Keys and tags are constants in `Core/Caching/CacheKeys.cs`.
