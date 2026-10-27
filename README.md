@@ -89,7 +89,17 @@ cd frontend
 npm test
 ```
 
-<!-- Test summary: filled in by task 18 (test coverage and quality gate). -->
+Last full run, from the main repository with both submodules at their latest `main`: 112 unit and 109 integration
+tests on the server, 220 tests on the client, all passing; server build without warnings, client lint and production
+build clean.
+
+| Required scenario | Covered by (integration tests, real SQL Server) |
+|---|---|
+| Valid query | `RequestsListTests` (paging, every filter, search, multi-field sort) |
+| Valid update | `UpdateStatus_ValidTransition_UpdatesRowAndWritesOneAuditRow`; `GetStats_AfterStatusUpdate_ReflectsTheChange` (cache invalidated) |
+| Invalid input | `GetPaged_InvalidParameter_Returns400WithFieldError`, `UpdateStatus_MissingField_Returns400WithFieldError` (400 ProblemDetails with `errors`); validator unit tests |
+| Stale-version conflict | `UpdateStatus_StaleVersion_Returns409AndWritesNoSecondAuditRow` |
+| Overlapping updates | `UpdateStatus_OverlappingUpdates_ExactlyOneSucceeds` (two requests with the same `version`: one 200, one 409, one audit row) |
 
 The SQL Server password in `backend/compose.yaml` and `appsettings.Development.json` is for local development only.
 
