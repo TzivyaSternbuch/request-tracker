@@ -628,7 +628,8 @@ Acceptance criteria:
   - the top five assignees by number of open requests, excluding unassigned requests and assignees with no open
     requests, with ties broken by name.
 - The statistics are global: they don't change with the list's filters, search or page. The UI labels them
-  "All requests overview."
+  "All requests overview." It shows the first three of the five assignees the API returns; the endpoint keeps the
+  top five.
 - The result is cached for 5 minutes and invalidated after every successful status change, single or bulk, once the
   change is committed.
 - The UI shows the statistics with loading, empty and error (with retry) states.
@@ -655,7 +656,7 @@ Exam: §1, §7 · Branch: `feature/13-stats-cache`
 Exam: §5 · Branch: `feature/16-stats-ui`
 
 - **Required:** An "All requests overview" section above the list shows the counts by status, the three open-age
-  buckets and the top five assignees, with loading, empty ("No requests yet") and error (with retry) states. It loads
+  buckets and the top three assignees (the first three of the API's five), with loading, empty ("No requests yet") and error (with retry) states. It loads
   each time the list page opens. The store exposes `refresh()`, which task 14 calls after a successful status update.
 - **Deliverable:** The numbers match the API, and they change after a status update.
 - **Guidance:** `CLAUDE.md` → Frontend conventions.
