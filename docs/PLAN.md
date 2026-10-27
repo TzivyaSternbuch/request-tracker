@@ -602,7 +602,7 @@ Acceptance criteria:
 Exam: §3, §4, §7 · Branch: `feature/11-bulk-status`
 
 - **Required:**
-  - `PATCH api/requests/status` with the validation and outcomes in US-5.1.
+  - `PATCH api/requests/bulk-status` with the validation and outcomes in US-5.1.
   - Each item gets the same version check, transition check and audit as a single update, in its own transaction.
     Per-item outcomes are returned as data, not exceptions.
   - The statistics cache is invalidated once if any item succeeded. One summary log line records the counts only.
@@ -784,7 +784,7 @@ the evidence:
 | §2 | No lost updates | 10 | Conditional update in the database |
 | §3 | Audit row for every status change | 05, 10, 11 | Same-transaction insert; exactly one row per success in tests |
 | §3 | Endpoint for a request's history | 12, 15 | `GET api/requests/{id}/history` (paged), history view |
-| §4 | Bulk update of up to 100 requests | 11 | `PATCH api/requests/status`, each item with `id` and `version` |
+| §4 | Bulk update of up to 100 requests | 11 | `PATCH api/requests/bulk-status`, each item with `id` and `version` |
 | §4 | Defined behavior for missing and conflicting items | 11, 19 | Per-item result, README |
 | §4 | All-or-Nothing or Partial Success, with reasons and a clear response | 11, 19 | `CLAUDE.md` decision, README |
 | §5 | Server-side search, filtering, sorting and paging | 09 | List view, network panel |
