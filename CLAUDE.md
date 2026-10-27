@@ -185,7 +185,7 @@ repository write outcomes — are return values, not exceptions; don't use excep
 | `GET api/requests/{id}` | 200 `RequestDto` |
 | `PATCH api/requests/{id}/status` — body `{ status, version, changedBy }` | 200 updated `RequestDto` (the client needs the new `version`) |
 | `PATCH api/requests/status` — bulk, body `{ items: [{ id, version }], status, changedBy }`, 1–100 items, distinct ids, every item with a valid `id` and `version` | 200 with per-item results (see Concurrency); an invalid request as a whole (e.g. >100 items, a missing `version`) is 400 |
-| `GET api/requests/{id}/history` — query: `page`, `pageSize` (same rules as the list) | 200 `PagedResult<StatusHistoryDto>`, newest first; 404 if the request doesn't exist |
+| `GET api/requests/{id}/history` — query: `page`, `pageSize` (default 10, max 100; otherwise the list's rules) | 200 `PagedResult<StatusHistoryDto>`, newest first; an unknown request id returns an empty page, not 404 |
 | `GET api/requests/stats` | 200 `RequestStatsDto` (cached): `asOf`, `countByStatus` (every status, zeros included), `openRequestAge` (`underSevenDays`, `sevenToUnderThirtyDays`, `thirtyDaysOrMore`, from `CreatedAt`, open requests only), `topAssignees` (`assignedTo`, `openCount`; at most five, unassigned and no-open excluded, ties by name). Global, not filtered. |
 | `GET api/requests/assignees` | 200 `string[]`: distinct `AssignedTo` values, alphabetical (feeds the assignee filter; not paged — it is the set of assignees, tens of names) |
 

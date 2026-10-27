@@ -551,7 +551,8 @@ understand how it got to its current state.
 
 Acceptance criteria:
 
-- The history endpoint returns changes newest first, in pages, with the total count. An unknown request returns 404.
+- The history endpoint returns changes newest first, in pages, with the total count.
+  An unknown request returns an empty page.
 - The details view shows the history with loading, empty and error states, and refreshes it after the user's own
   update.
 - When a request has more changes than are shown, the UI says so and can load the older ones. It never presents part
@@ -563,11 +564,12 @@ Exam: §3 · Branch: `feature/12-history-api`
 
 - **Required:** `GET api/requests/{id}/history`, newest first, paged with the same `page`/`pageSize` rules and result
   shape as the list. Paging keeps the response bounded and tells the client how many entries exist. An unknown request
-  returns 404. An existing request with no changes returns an empty page.
+  and an existing request with no changes both return an empty page (200, never 404), so the endpoint needs no
+  existence check.
 - **Deliverable:** The endpoint, with every response code declared, the updated row in the API contract table, and integration tests:
   - after two updates, the history has two rows, newest first, with every audit field;
   - with more entries than the page size, `totalCount` is correct and the second page holds the older entries;
-  - an unknown ID returns 404.
+  - an unknown ID returns 200 with an empty page.
 - **Guidance:** `CLAUDE.md` → API contract. Reuses the paging and validation from task 08.
 
 #### 15 History UI
